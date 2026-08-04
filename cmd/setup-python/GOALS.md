@@ -133,11 +133,11 @@ Must pass hermetically — no network access.
 
 Depends on: G4, G5, G6
 
-- [ ] `cmd/setup-python/README.md` has flags tables for both subcommands, a
+- [x] `cmd/setup-python/README.md` has flags tables for both subcommands, a
       cache/caching section, a "Documented deviations" section (pre-install-steps
       unsupported + `--no-cache` workaround, `--venv-path` as a repeatable flag),
       and example invocations.
-- [ ] Top-level `README.md` functions table gets a `setup-python` row.
+- [x] Top-level `README.md` functions table gets a `setup-python` row.
 
 **Verify:**
 ```
