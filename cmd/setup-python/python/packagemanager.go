@@ -20,18 +20,14 @@ const (
 	UV      PackageManager = "uv"
 )
 
-// requirementsTxt is the pip/pip-dist dependency file name. It also doubles
-// as the pip/pip-dist "lockfile" for cache-key purposes (there's no real
-// lockfile mechanism for plain pip).
+// requirementsTxt is the pip and pip-dist dependency file name, which also
+// stands in as their lockfile for cache-key purposes.
 const requirementsTxt = "requirements.txt"
 
 // DetectFromDir scans dir for known Python project files and returns the
-// matching package manager, mirroring the circleci/python orb's
-// `pkg-manager: auto` detection (see porting.md). setupFilePath is the
-// value of the --setup-file-path flag: when non-empty it names an
-// additional file (relative to dir) that, like setup.py, marks a
-// requirements.txt-based project as pip-dist rather than plain pip. Pass ""
-// when the flag wasn't set.
+// matching package manager. setupFilePath, when non-empty, names a file
+// relative to dir that marks a requirements.txt project as pip-dist rather
+// than pip, the same way setup.py does.
 //
 // Priority order (first match wins):
 //  1. requirements.txt + (setup.py or setupFilePath present) -> pip-dist
@@ -69,10 +65,9 @@ func DetectFromDir(dir string, setupFilePath string) (PackageManager, error) {
 	return "", fmt.Errorf("no package manager detected in %s", dir)
 }
 
-// Lockfile returns the canonical lockfile name for pm, used both for
-// cache-key hashing and as the default dependency file. pip and pip-dist
-// have no real lockfile format; requirements.txt fills that role for both
-// (see porting.md's install-packages cache table).
+// Lockfile returns the canonical lockfile name for pm, used for cache-key
+// hashing and as the default dependency file. pip and pip-dist have no
+// lockfile format, so requirements.txt fills that role for both.
 func (pm PackageManager) Lockfile() string {
 	switch pm {
 	case Pip, PipDist:

@@ -2,7 +2,7 @@
 // explicitly selected) package manager, restoring/saving its venv and pypi
 // cache directories via the CircleCI job cache around the install.
 //
-// Supported platforms: linux and darwin.
+// Supported platforms: linux, darwin, and windows.
 package main
 
 import (
@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/alecthomas/kong"
@@ -43,8 +42,7 @@ type installPackagesCmd struct {
 }
 
 // distCmd builds a Python distribution package via either setup.py
-// (build-tool=wheel, the default) or PEP 517 `python -m build`
-// (build-tool=build), per porting.md's dist flag-mapping table.
+// (build-tool=wheel) or PEP 517 python -m build (build-tool=build).
 type distCmd struct {
 	AppDir              string `help:"Directory containing the Python project." default:"."`
 	BuildTool           string `help:"Build backend to use." enum:"wheel,build" default:"wheel"`
@@ -55,14 +53,9 @@ type distCmd struct {
 	WheelSeparate       bool   `help:"Build the wheel as a separate step. build-tool=build only; passes --wheel to 'python -m build'." default:"false"`
 }
 
-// Run resolves the python/pip binaries (same alias behavior as
-// install-packages) and runs the build-tool-appropriate command sequence
-// from python.DistCommands.
+// Run resolves the python and pip binaries and runs the command sequence for
+// the selected build tool.
 func (c *distCmd) Run(ctx context.Context, _ *sdk.Client) error {
-	if runtime.GOOS == "windows" {
-		return fmt.Errorf("setup-python dist: windows is not yet supported")
-	}
-
 	appDir, err := resolveAppDir(c.AppDir)
 	if err != nil {
 		return err
@@ -88,10 +81,6 @@ func (c *distCmd) Run(ctx context.Context, _ *sdk.Client) error {
 // Run resolves the package manager, restores its cache (unless --no-cache),
 // runs its install command, and saves the cache back.
 func (c *installPackagesCmd) Run(ctx context.Context, client *sdk.Client) error {
-	if runtime.GOOS == "windows" {
-		return fmt.Errorf("setup-python install-packages: windows is not yet supported")
-	}
-
 	if err := c.resolveAppDir(); err != nil {
 		return err
 	}
@@ -195,10 +184,8 @@ func (c *installPackagesCmd) restoreCache(ctx context.Context, client *sdk.Clien
 	return cacheKey, nil
 }
 
-// installPackages runs pm's install command in c.AppDir via runInstall,
-// using whichever of pip/pip3 ResolveBinaries found for pip/pip-dist (which
-// have no alias concept of their own on PATH; see porting.md's "Python/pip
-// binary resolution") and pm's own binary name otherwise.
+// installPackages runs pm's install command in c.AppDir. pip and pip-dist
+// use the resolved pip binary; every other manager uses its own name.
 func (c *installPackagesCmd) installPackages(ctx context.Context, pm python.PackageManager, binaries python.Binaries) error {
 	installBin := pm.Binary()
 	if pm == python.Pip || pm == python.PipDist {
@@ -221,10 +208,9 @@ func (c *installPackagesCmd) resolvePackageManager() (python.PackageManager, err
 	return pm, nil
 }
 
-// lockfileName returns the file (relative to --app-dir) to hash for the
-// cache key. pip/pip-dist have no real lockfile format, so
-// --pip-dependency-file doubles as their lockfile (see porting.md); every
-// other manager uses its own fixed lockfile name.
+// lockfileName returns the file, relative to --app-dir, to hash for the
+// cache key. pip and pip-dist have no lockfile format, so their dependency
+// file stands in for one.
 func lockfileName(pm python.PackageManager, pipDependencyFile string) string {
 	switch pm {
 	case python.Pip, python.PipDist:
@@ -243,11 +229,9 @@ func splitArgs(args string) []string {
 	return strings.Fields(args)
 }
 
-// runInstall executes bin with args in appDir, forwarding stdout/stderr to
-// the process's own, mirroring node.PackageManager.InstallPackages. It's a
-// package-level variable rather than a plain function so tests can stub it
-// out without exec-ing a real pip/poetry/pipenv/uv -- the same seam pattern
-// as python.pythonVersion in cmd/setup-python/python/cache.go.
+// runInstall executes bin with args in appDir, forwarding stdout and stderr.
+// It's a variable so tests can stub it without a real package manager
+// installed.
 var runInstall = func(ctx context.Context, bin string, args []string, appDir string) error {
 	if _, err := exec.LookPath(bin); err != nil {
 		return fmt.Errorf("%s binary not found on PATH", bin)
@@ -264,10 +248,8 @@ var runInstall = func(ctx context.Context, bin string, args []string, appDir str
 	return nil
 }
 
-// runBuild executes bin with args in appDir, forwarding stdout/stderr to the
-// process's own; the dist subcommand's counterpart to runInstall, and the
-// concrete python.Runner passed to python.RunDist. Same package-level
-// variable seam so tests can stub it out without exec-ing a real pip/python.
+// runBuild executes bin with args in appDir, forwarding stdout and stderr.
+// It's a variable so tests can stub it without a real python installed.
 var runBuild = func(ctx context.Context, bin string, args []string, appDir string) error {
 	if _, err := exec.LookPath(bin); err != nil {
 		return fmt.Errorf("%s binary not found on PATH", bin)

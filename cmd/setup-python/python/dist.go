@@ -5,14 +5,11 @@ import (
 	"fmt"
 )
 
-// Runner executes bin with args in dir, forwarding stdout/stderr to the
-// calling process's own. It matches the shape of the runInstall/runBuild
-// exec seams in cmd/setup-python/main.go, letting RunDist (and its callers'
-// tests) fake command execution without a real pip/python on PATH.
+// Runner executes bin with args in dir, forwarding stdout and stderr to the
+// calling process.
 type Runner func(ctx context.Context, bin string, args []string, dir string) error
 
-// DistOptions holds the resolved settings for a `dist` build, mirroring
-// distCmd's flags in main.go (see porting.md's dist flag-mapping table).
+// DistOptions holds the resolved settings for a dist build.
 type DistOptions struct {
 	AppDir              string
 	BuildTool           string
@@ -29,9 +26,8 @@ type DistCommand struct {
 	Args []string
 }
 
-// DistCommands returns, in order, the subprocess invocations required to
-// build a distribution for opts.BuildTool, per porting.md's dist command
-// table:
+// DistCommands returns, in order, the subprocess invocations that build a
+// distribution for opts.BuildTool. Nothing is executed:
 //
 //	wheel -> pip install wheel
 //	         python setup.py sdist bdist_wheel --dist-dir <out-dir>
@@ -39,8 +35,7 @@ type DistCommand struct {
 //	build -> pip install build
 //	         python -m build --outdir <out-dir> [--sdist] [--wheel] [--skip-dependency-check] [--no-isolation] .
 //
-// Pure and side-effect free (no subprocess is run), so callers/tests can
-// assert on the exact argv without executing anything.
+// Returns an error for an unknown build tool.
 func DistCommands(binaries Binaries, opts DistOptions) ([]DistCommand, error) {
 	switch opts.BuildTool {
 	case "wheel":
@@ -72,8 +67,8 @@ func DistCommands(binaries Binaries, opts DistOptions) ([]DistCommand, error) {
 	}
 }
 
-// RunDist executes, in order, the DistCommands for binaries/opts via run in
-// opts.AppDir, stopping at (and returning) the first error.
+// RunDist executes the DistCommands for binaries and opts in opts.AppDir,
+// stopping at and returning the first error.
 func RunDist(ctx context.Context, run Runner, binaries Binaries, opts DistOptions) error {
 	commands, err := DistCommands(binaries, opts)
 	if err != nil {

@@ -5,8 +5,7 @@ manager, restoring/saving its venv and pypi cache directories to the
 CircleCI job cache around the install. Also builds distribution packages via
 `setup.py` or PEP 517 `python -m build`. A 1:1 port of the
 [`circleci/python`](https://circleci.com/developer/orbs/orb/circleci/python)
-orb's `install-packages` and `dist` commands — see `porting.md` for the full
-mapping.
+orb's `install-packages` and `dist` commands.
 
 Invoked via:
 
@@ -101,7 +100,7 @@ both consulted only when `--cache` is true:
 | Package manager | venv path(s) (`--venv-cache`) | pypi path(s) (`--pypi-cache`) | lockfile (cache key + `--pip-dependency-file`) |
 |---|---|---|---|
 | `pip` / `pip-dist` | _(none — pip has no venv concept)_ | `~/.cache/pip`, `~/.pyenv/versions`, `~/.local/lib` | `--pip-dependency-file` (default `requirements.txt`) |
-| `pipenv` | `$WORKON_HOME` (or `<app-dir>/.venvs` if `PIPENV_VENV_IN_PROJECT` is set) | `~/.cache/pip`, `~/.cache/pipenv` | `Pipfile.lock` |
+| `pipenv` | `$WORKON_HOME`, else `~/.local/share/virtualenvs` (or `<app-dir>/.venvs` if `PIPENV_VENV_IN_PROJECT` is set) | `~/.cache/pip`, `~/.cache/pipenv` | `Pipfile.lock` |
 | `poetry` | `~/.cache/pypoetry/virtualenvs` | `~/.cache/pip` | `poetry.lock` |
 | `uv` | `<app-dir>/.venv` (or `$CIRCLE_WORKING_DIRECTORY/.venv` if set) | `~/.cache/uv` | `uv.lock` |
 
@@ -165,6 +164,10 @@ circleci run setup-python@<version> dist --build-tool build --sdist-separate --w
 
 ## Platform support
 
-Linux and darwin only, per this repo's [CLAUDE.md](../../CLAUDE.md). Windows
-support is deferred; `install-packages` and `dist` both fail fast with a
-clear error when run on Windows.
+Linux, darwin and Windows. `install-packages` and `dist` run on all three.
+
+Cache locations are resolved per platform, following each tool's own
+documented default — e.g. pip's cache is `~/.cache/pip` on Linux,
+`~/Library/Caches/pip` on macOS and `%LocalAppData%\pip\Cache` on Windows.
+The paths in the [Caching](#caching) table above are the Linux ones; the
+macOS and Windows equivalents are used automatically when running there.

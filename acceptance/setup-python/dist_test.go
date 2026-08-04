@@ -25,9 +25,9 @@ func resolvePipBin() string {
 // run with. `dist` always runs `pip install wheel` (or `pip install build`)
 // before building; when the package is already satisfied there, pip confirms
 // that instantly with no network access, but a cold install would need to
-// reach PyPI -- which this suite must not depend on (see this package's
-// "must pass hermetically" requirement). Checking against `home` rather than
-// this test process's own ambient $HOME matters because `pip install --user`
+// reach PyPI -- which this suite must not depend on, since these tests must
+// pass hermetically, without network access. Checking against `home` rather
+// than this test process's own ambient $HOME matters because `pip install --user`
 // packages live under $HOME: a package installed for the real, ambient home
 // (e.g. by a developer's own machine setup) would otherwise look
 // "available" here but be invisible to the subprocess once $HOME is
@@ -47,16 +47,15 @@ func requirePipPackage(t *testing.T, home, pkg string) {
 }
 
 // TestCLI_Dist covers both build-tool values, asserting the built
-// distribution(s) land in --out-dir. The fixture project
-// (testdata/dist-fixture) has no dependencies of its own, so building it
-// needs no network; the only network-shaped step `dist` performs is
-// installing its own build tool (wheel/build), guarded by requirePipPackage
-// above.
+// distribution(s) land in --out-dir. The project it builds
+// (testdata/distproject) has no dependencies of its own, so building it needs
+// no network; the only network-shaped step `dist` performs is installing its
+// own build tool (wheel/build), guarded by requirePipPackage above.
 //
-// The fixture directory is named "dist-fixture" rather than "dist" because
-// the repo's top-level .gitignore has an unanchored `dist/` rule (for the
-// `task dry-run`/`task ci` build-output dir) that would otherwise also match
-// -- and silently exclude from `git add` -- a testdata/dist directory here.
+// That directory is named "distproject" rather than "dist" because the repo's
+// top-level .gitignore has an unanchored `dist/` rule (for the `task
+// dry-run`/`task ci` build-output dir) that would otherwise also match -- and
+// silently exclude from `git add` -- a testdata/dist directory here.
 func TestCLI_Dist(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -72,7 +71,7 @@ func TestCLI_Dist(t *testing.T) {
 			// setup.py's own "sdist" step ignores --dist-dir and always
 			// writes to <app-dir>/dist; only the wheel from "bdist_wheel"
 			// respects --dist-dir, so --out-dir only ever gets the wheel.
-			wantFiles: []string{"dist_fixture-0.1.0-py3-none-any.whl"},
+			wantFiles: []string{"distproject-0.1.0-py3-none-any.whl"},
 		},
 		{
 			name:      "build",
@@ -82,7 +81,7 @@ func TestCLI_Dist(t *testing.T) {
 			// isolated build env and fetches its own build dependencies
 			// from PyPI even though they're already available locally.
 			extraArgs: []string{"--no-isolation"},
-			wantFiles: []string{"dist_fixture-0.1.0-py3-none-any.whl", "dist_fixture-0.1.0.tar.gz"},
+			wantFiles: []string{"distproject-0.1.0-py3-none-any.whl", "distproject-0.1.0.tar.gz"},
 		},
 	}
 
@@ -92,7 +91,7 @@ func TestCLI_Dist(t *testing.T) {
 			requirePipPackage(t, home, tc.needsPkg)
 
 			appDir := t.TempDir()
-			copyFixture(t, "testdata/dist-fixture", appDir)
+			copyFixture(t, "testdata/distproject", appDir)
 			outDir := filepath.Join(t.TempDir(), "dist-out")
 
 			env := map[string]string{

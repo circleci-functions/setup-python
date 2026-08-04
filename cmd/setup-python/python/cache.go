@@ -7,26 +7,33 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/circleci/functions/pkg/sdk"
 )
 
-// cacheKeyTag identifies setup-python's cache keys, mirroring the
-// circleci/python orb's own "cci_pycache" component.
+// cacheKeyTag identifies setup-python's cache keys.
 const cacheKeyTag = "cci_pycache"
 
-// VenvPaths returns the filesystem path(s) holding pm's virtual
-// environment(s), per porting.md's cache path table. appDir is the project
-// directory (the --app-dir flag), consulted for pipenv's
-// PIPENV_VENV_IN_PROJECT case and uv's <app-dir>/.venv fallback.
-//
-// override, when non-empty, is the caller-supplied --venv-path flag value:
-// it replaces the detected path(s) outright, for any manager (including
-// pip/pip-dist, which otherwise have no venv path at all).
-//
-// pip and pip-dist have no venv concept and return (nil, nil) absent an
-// override.
+// toolCacheDir returns the default cache directory for the tool named by
+// unix (the directory name under the user cache dir on linux and darwin) and
+// windows (the path segments under %LocalAppData%).
+func toolCacheDir(unix string, windows ...string) (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve cache directory: %w", err)
+	}
+	if runtime.GOOS == "windows" {
+		return filepath.Join(append([]string{base}, windows...)...), nil
+	}
+	return filepath.Join(base, unix), nil
+}
+
+// VenvPaths returns the directories holding pm's virtual environment(s).
+// appDir is the project directory, used for pipenv's in-project layout and
+// uv's default. override, when non-empty, replaces the detected paths for
+// any manager. Returns nil for pip and pip-dist, which install globally.
 func VenvPaths(pm PackageManager, appDir string, override []string) ([]string, error) {
 	if len(override) > 0 {
 		return override, nil
@@ -46,13 +53,16 @@ func VenvPaths(pm PackageManager, appDir string, override []string) ([]string, e
 		if err != nil {
 			return nil, fmt.Errorf("resolve home directory: %w", err)
 		}
+		if runtime.GOOS == "windows" {
+			return []string{filepath.Join(home, ".virtualenvs")}, nil
+		}
 		return []string{filepath.Join(home, ".local", "share", "virtualenvs")}, nil
 	case Poetry:
-		home, err := os.UserHomeDir()
+		dir, err := toolCacheDir("pypoetry", "pypoetry", "Cache")
 		if err != nil {
-			return nil, fmt.Errorf("resolve home directory: %w", err)
+			return nil, err
 		}
-		return []string{filepath.Join(home, ".cache", "pypoetry", "virtualenvs")}, nil
+		return []string{filepath.Join(dir, "virtualenvs")}, nil
 	case UV:
 		if wd := os.Getenv("CIRCLE_WORKING_DIRECTORY"); wd != "" {
 			return []string{filepath.Join(wd, ".venv")}, nil
@@ -63,45 +73,54 @@ func VenvPaths(pm PackageManager, appDir string, override []string) ([]string, e
 	}
 }
 
-// PypiPaths returns the filesystem path(s) holding pm's package/download
-// cache, per porting.md's cache path table. Unlike VenvPaths, there is no
-// override for this bucket.
+// PypiPaths returns the directories holding pm's downloaded packages and
+// installed site-packages.
 func PypiPaths(pm PackageManager) ([]string, error) {
-	home, err := os.UserHomeDir()
+	pip, err := toolCacheDir("pip", "pip", "Cache")
 	if err != nil {
-		return nil, fmt.Errorf("resolve home directory: %w", err)
+		return nil, err
 	}
 
 	switch pm {
 	case Pip, PipDist:
-		return []string{
-			filepath.Join(home, ".cache", "pip"),
-			filepath.Join(home, ".pyenv", "versions"),
-			filepath.Join(home, ".local", "lib"),
-		}, nil
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("resolve home directory: %w", err)
+		}
+		pyenv := filepath.Join(home, ".pyenv", "versions")
+		userLib := filepath.Join(home, ".local", "lib")
+		if runtime.GOOS == "windows" {
+			pyenv = filepath.Join(home, ".pyenv", "pyenv-win", "versions")
+			userLib = filepath.Join(os.Getenv("APPDATA"), "Python")
+		}
+		return []string{pip, pyenv, userLib}, nil
 	case Pipenv:
-		return []string{
-			filepath.Join(home, ".cache", "pip"),
-			filepath.Join(home, ".cache", "pipenv"),
-		}, nil
+		pipenv, err := toolCacheDir("pipenv", "pipenv", "Cache")
+		if err != nil {
+			return nil, err
+		}
+		return []string{pip, pipenv}, nil
 	case Poetry:
-		return []string{filepath.Join(home, ".cache", "pip")}, nil
+		return []string{pip}, nil
 	case UV:
-		return []string{filepath.Join(home, ".cache", "uv")}, nil
+		uv, err := toolCacheDir("uv", "uv", "cache")
+		if err != nil {
+			return nil, err
+		}
+		return []string{uv}, nil
 	default:
 		return nil, fmt.Errorf("unknown package manager %q", pm)
 	}
 }
 
-// CacheKey builds the cache key for install-packages's venv/pypi cache
-// buckets. If override (the --cache-key-override flag) is non-empty, it's
-// returned verbatim and nothing else is computed -- notably, the lockfile
-// at lockfilePath is not even read. Otherwise the key is:
+// CacheKey returns the cache key for the venv/pypi cache buckets. A non-empty
+// override is returned verbatim, without reading the lockfile. Otherwise the
+// key is:
 //
 //	<cacheVersion>-cci_pycache[-<CIRCLE_BRANCH>][-<python --version output>]-<sha256(lockfile)>
 //
-// with the bracketed components included only when includeBranch/
-// includePython are set, matching porting.md's cache key design.
+// with the bracketed components included only when includeBranch and
+// includePython are set.
 func CacheKey(cacheVersion string, includeBranch, includePython bool, lockfilePath, override string) (string, error) {
 	if override != "" {
 		return override, nil
@@ -132,12 +151,8 @@ func CacheKey(cacheVersion string, includeBranch, includePython bool, lockfilePa
 	return key, nil
 }
 
-// pythonVersion returns the trimmed output of running `python --version`,
-// using ResolveBinaries so the python3 fallback (see porting.md's "Python/pip
-// binary resolution") has a single source of truth shared with the rest of
-// the package. It's a variable rather than a plain function so tests can
-// stub it out without depending on a real python interpreter being
-// installed.
+// pythonVersion returns the trimmed output of running python --version.
+// It's a variable so tests can stub it without a real interpreter installed.
 var pythonVersion = func() (string, error) {
 	bin := ResolveBinaries().Python
 
@@ -150,17 +165,15 @@ var pythonVersion = func() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// RestoreCache restores the CircleCI job cache entry under key. It is
-// best-effort: any failure -- including running outside a CircleCI job,
-// where client returns sdk.ErrNoServer -- is logged to stderr rather than
-// returned, mirroring setup-go/cache's Restore*Cache helpers.
+// RestoreCache restores the CircleCI job cache entry under key. Failures,
+// including running outside a CircleCI job, are logged rather than returned.
 func RestoreCache(ctx context.Context, client *sdk.Client, key string) {
 	_, err := client.RestoreCache(ctx, []string{key})
 	sdk.LogCacheErr("restore", err)
 }
 
-// SaveCache saves paths under key to the CircleCI job cache. Best-effort,
-// same as RestoreCache.
+// SaveCache saves paths under key to the CircleCI job cache. Failures are
+// logged rather than returned.
 func SaveCache(ctx context.Context, client *sdk.Client, key string, paths []string) {
 	sdk.LogCacheErr("save", client.SaveCache(ctx, key, paths))
 }

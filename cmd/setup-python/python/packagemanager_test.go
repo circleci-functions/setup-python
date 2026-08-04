@@ -10,8 +10,9 @@ import (
 	"github.com/circleci/functions/cmd/setup-python/python"
 )
 
-// --- DetectFromDir ---
-
+// TestDetectFromDir verifies which package manager is inferred from the files
+// present in a project directory, including the priority order between them
+// and the error when nothing matches.
 func TestDetectFromDir(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -103,50 +104,54 @@ func TestDetectFromDir(t *testing.T) {
 	}
 }
 
-// --- Lockfile ---
-
+// TestLockfile verifies the lockfile name each package manager hashes for
+// cache keys; pip and pip-dist have no lockfile format, so requirements.txt
+// stands in for both.
 func TestLockfile(t *testing.T) {
 	tests := []struct {
+		name string
 		pm   python.PackageManager
 		want string
 	}{
-		{python.Pip, "requirements.txt"},
-		{python.PipDist, "requirements.txt"},
-		{python.Pipenv, "Pipfile.lock"},
-		{python.UV, "uv.lock"},
-		{python.Poetry, "poetry.lock"},
+		{name: "pip", pm: python.Pip, want: "requirements.txt"},
+		{name: "pip-dist", pm: python.PipDist, want: "requirements.txt"},
+		{name: "pipenv", pm: python.Pipenv, want: "Pipfile.lock"},
+		{name: "uv", pm: python.UV, want: "uv.lock"},
+		{name: "poetry", pm: python.Poetry, want: "poetry.lock"},
 	}
 
 	for _, tc := range tests {
-		t.Run(string(tc.pm), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.pm.Lockfile(), tc.want)
 		})
 	}
 }
 
-// --- Binary ---
-
+// TestBinary verifies the executable name each package manager installs with;
+// pip-dist installs via the pip binary rather than one of its own.
 func TestBinary(t *testing.T) {
 	tests := []struct {
+		name string
 		pm   python.PackageManager
 		want string
 	}{
-		{python.Pip, "pip"},
-		{python.PipDist, "pip"},
-		{python.Pipenv, "pipenv"},
-		{python.Poetry, "poetry"},
-		{python.UV, "uv"},
+		{name: "pip", pm: python.Pip, want: "pip"},
+		{name: "pip-dist", pm: python.PipDist, want: "pip"},
+		{name: "pipenv", pm: python.Pipenv, want: "pipenv"},
+		{name: "poetry", pm: python.Poetry, want: "poetry"},
+		{name: "uv", pm: python.UV, want: "uv"},
 	}
 
 	for _, tc := range tests {
-		t.Run(string(tc.pm), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.pm.Binary(), tc.want)
 		})
 	}
 }
 
-// --- InstallArgs ---
-
+// TestInstallArgs verifies the argv each package manager installs with, that
+// only pip consults the dependency file and only pip-dist the path args, and
+// that extra args are appended verbatim in every case.
 func TestInstallArgs(t *testing.T) {
 	tests := []struct {
 		name           string

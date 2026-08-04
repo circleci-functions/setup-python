@@ -59,8 +59,8 @@ func run(t *testing.T, extraEnv map[string]string, args ...string) (string, erro
 // copyFixture recursively copies the contents of src into dst, used to seed
 // a fresh --app-dir per test run from a testdata fixture without mutating
 // the fixture itself. Unlike acceptance/setup-node's flat copyFixture, this
-// one recurses since some setup-python fixtures (pip-dist, dist) include a
-// local package subdirectory alongside their top-level files.
+// one recurses since some setup-python fixtures (pip-dist, distproject)
+// include a local package subdirectory alongside their top-level files.
 func copyFixture(t *testing.T, src, dst string) {
 	t.Helper()
 	entries, err := os.ReadDir(src)

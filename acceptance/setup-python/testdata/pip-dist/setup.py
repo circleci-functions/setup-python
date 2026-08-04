@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name="pip-dist-fixture",
+    name="pip-dist-demo",
     version="0.1.0",
-    packages=["pipdistfixture"],
+    packages=["demopkg"],
 )

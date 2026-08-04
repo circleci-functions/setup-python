@@ -5,9 +5,11 @@ package python
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -27,244 +29,347 @@ func stubPythonVersion(t *testing.T, version string, err error) {
 	t.Cleanup(func() { pythonVersion = orig })
 }
 
-// --- CacheKey ---
+// unixOrWindows returns windows on windows and unix everywhere else, so
+// expected paths follow the same runtime.GOOS branch as the code under test.
+func unixOrWindows[T any](unix, windows T) T {
+	if runtime.GOOS == "windows" {
+		return windows
+	}
+	return unix
+}
 
-func TestCacheKeyToggleCombinations(t *testing.T) {
-	stubPythonVersion(t, "Python 3.11.4", nil)
+// userDirs points the OS home-directory lookup at a temporary directory and
+// returns the home and user cache directories resolved from it. Expected
+// paths are derived from these rather than hardcoded, because the user cache
+// directory is platform specific (~/.cache, ~/Library/Caches,
+// %LocalAppData%).
+func userDirs(t *testing.T) (home, cache string) {
+	t.Helper()
 
 	dir := t.TempDir()
-	lockfile := filepath.Join(dir, "requirements.txt")
-	contents := []byte("requests==2.31.0\n")
-	assert.NilError(t, os.WriteFile(lockfile, contents, 0600))
-	sum := fmt.Sprintf("%x", sha256.Sum256(contents))
+	t.Setenv("HOME", dir)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", dir)
+	}
 
-	tests := []struct {
-		name          string
-		includeBranch bool
-		includePython bool
-		branch        string
-		want          string
-	}{
+	home, err := os.UserHomeDir()
+	assert.NilError(t, err)
+	cache, err = os.UserCacheDir()
+	assert.NilError(t, err)
+
+	return home, cache
+}
+
+// setEnv sets the variables present in env and clears every other name in
+// names, so a case sees exactly the environment it declares and can't
+// inherit one from a sibling case or from the developer's shell.
+func setEnv(t *testing.T, names []string, env map[string]string) {
+	t.Helper()
+	for _, name := range names {
+		// t.Setenv registers the restore even when the variable is
+		// immediately unset again.
+		t.Setenv(name, env[name])
+		if _, ok := env[name]; !ok {
+			_ = os.Unsetenv(name)
+		}
+	}
+}
+
+// venvEnvVars are the environment variables VenvPaths consults.
+var venvEnvVars = []string{"PIPENV_VENV_IN_PROJECT", "WORKON_HOME", "CIRCLE_WORKING_DIRECTORY"}
+
+// TestCacheVenvPaths verifies the virtualenv directories reported for each
+// package manager: pip and pip-dist have none, pipenv follows
+// PIPENV_VENV_IN_PROJECT then WORKON_HOME then its per-user default, poetry
+// nests them in its own cache dir, uv follows CIRCLE_WORKING_DIRECTORY then
+// the app dir, an explicit override replaces the lot, and an unrecognized
+// manager is an error.
+func TestCacheVenvPaths(t *testing.T) {
+	home, cache := userDirs(t)
+	appDir := filepath.Join(home, "app")
+	override := []string{filepath.Join(home, "override", "one"), filepath.Join(home, "override", "two")}
+
+	type testCase struct {
+		name     string
+		pm       PackageManager
+		env      map[string]string
+		override []string
+		want     []string
+		wantErr  string
+	}
+
+	tests := []testCase{
 		{
-			name: "neither branch nor python",
-			want: "v1-cci_pycache-" + sum,
+			name: "pip installs globally so has no venv",
+			pm:   Pip,
 		},
 		{
-			name:          "branch only",
-			includeBranch: true,
-			branch:        "main",
-			want:          "v1-cci_pycache-main-" + sum,
+			name: "pip-dist installs globally so has no venv",
+			pm:   PipDist,
 		},
 		{
-			name:          "python only",
-			includePython: true,
-			want:          "v1-cci_pycache-Python 3.11.4-" + sum,
+			name: "pipenv defaults to the per-user virtualenvs dir",
+			pm:   Pipenv,
+			want: unixOrWindows(
+				[]string{filepath.Join(home, ".local", "share", "virtualenvs")},
+				[]string{filepath.Join(home, ".virtualenvs")},
+			),
 		},
 		{
-			name:          "branch and python",
-			includeBranch: true,
-			includePython: true,
-			branch:        "feature/x",
-			want:          "v1-cci_pycache-feature/x-Python 3.11.4-" + sum,
+			name: "pipenv honours WORKON_HOME",
+			pm:   Pipenv,
+			env:  map[string]string{"WORKON_HOME": filepath.Join(home, "workon")},
+			want: []string{filepath.Join(home, "workon")},
 		},
+		{
+			name: "pipenv prefers PIPENV_VENV_IN_PROJECT over WORKON_HOME",
+			pm:   Pipenv,
+			env: map[string]string{
+				"WORKON_HOME":            filepath.Join(home, "workon"),
+				"PIPENV_VENV_IN_PROJECT": "1",
+			},
+			want: []string{filepath.Join(appDir, ".venvs")},
+		},
+		{
+			name: "poetry keeps virtualenvs under its own cache dir",
+			pm:   Poetry,
+			want: unixOrWindows(
+				[]string{filepath.Join(cache, "pypoetry", "virtualenvs")},
+				[]string{filepath.Join(cache, "pypoetry", "Cache", "virtualenvs")},
+			),
+		},
+		{
+			name: "uv defaults to <app-dir>/.venv",
+			pm:   UV,
+			want: []string{filepath.Join(appDir, ".venv")},
+		},
+		{
+			name: "uv prefers CIRCLE_WORKING_DIRECTORY over the app dir",
+			pm:   UV,
+			env:  map[string]string{"CIRCLE_WORKING_DIRECTORY": filepath.Join(home, "circle-wd")},
+			want: []string{filepath.Join(home, "circle-wd", ".venv")},
+		},
+		{
+			name:    "unknown package manager is an error",
+			pm:      "bogus",
+			wantErr: `unknown package manager "bogus"`,
+		},
+	}
+
+	// An override replaces the detected paths for every manager, including
+	// pip and pip-dist, which otherwise have none at all.
+	for _, pm := range []PackageManager{Pip, PipDist, Pipenv, Poetry, UV} {
+		tests = append(tests, testCase{
+			name:     "override wins for " + string(pm),
+			pm:       pm,
+			override: override,
+			want:     override,
+		})
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("CIRCLE_BRANCH", tc.branch)
+			setEnv(t, venvEnvVars, tc.env)
 
-			got, err := CacheKey("v1", tc.includeBranch, tc.includePython, lockfile, "")
-			assert.NilError(t, err)
-			assert.Equal(t, got, tc.want)
-		})
-	}
-}
-
-// TestCacheKeyBranchEnvUnset verifies that an unset CIRCLE_BRANCH still
-// contributes a bare "-" separator, matching the literal
-// "-" + os.Getenv("CIRCLE_BRANCH") construction.
-func TestCacheKeyBranchEnvUnset(t *testing.T) {
-	t.Setenv("CIRCLE_BRANCH", "")
-	_ = os.Unsetenv("CIRCLE_BRANCH")
-
-	dir := t.TempDir()
-	lockfile := filepath.Join(dir, "requirements.txt")
-	contents := []byte("flask==3.0.0\n")
-	assert.NilError(t, os.WriteFile(lockfile, contents, 0600))
-	sum := fmt.Sprintf("%x", sha256.Sum256(contents))
-
-	got, err := CacheKey("v1", true, false, lockfile, "")
-	assert.NilError(t, err)
-	// includeBranch still contributes its "-" separator even though
-	// CIRCLE_BRANCH itself is empty, per the literal
-	// "-" + os.Getenv("CIRCLE_BRANCH") construction -- hence the double
-	// dash before the checksum.
-	assert.Equal(t, got, "v1-cci_pycache--"+sum)
-}
-
-// TestCacheKeyOverrideSkipsComputation verifies that a non-empty override is
-// returned verbatim, without even attempting to read the (nonexistent)
-// lockfile or resolve a python version.
-func TestCacheKeyOverrideSkipsComputation(t *testing.T) {
-	stubPythonVersion(t, "", fmt.Errorf("should not be called"))
-
-	got, err := CacheKey("v1", true, true, filepath.Join(t.TempDir(), "does-not-exist.lock"), "my-override-key")
-	assert.NilError(t, err)
-	assert.Equal(t, got, "my-override-key")
-}
-
-// TestCacheKeyMissingLockfile verifies that a missing lockfile is a hard
-// error when no override is set.
-func TestCacheKeyMissingLockfile(t *testing.T) {
-	_, err := CacheKey("v1", false, false, filepath.Join(t.TempDir(), "does-not-exist.lock"), "")
-	assert.ErrorContains(t, err, "read lockfile")
-}
-
-// TestCacheKeyPythonVersionError verifies that a failure resolving the
-// python version (e.g. no interpreter on PATH) is a hard error, not
-// silently swallowed.
-func TestCacheKeyPythonVersionError(t *testing.T) {
-	stubPythonVersion(t, "", fmt.Errorf("python: command not found"))
-
-	dir := t.TempDir()
-	lockfile := filepath.Join(dir, "requirements.txt")
-	assert.NilError(t, os.WriteFile(lockfile, []byte("x"), 0600))
-
-	_, err := CacheKey("v1", false, true, lockfile, "")
-	assert.ErrorContains(t, err, "resolve python version")
-}
-
-// --- VenvPaths ---
-
-func TestCacheVenvPathsPipHasNone(t *testing.T) {
-	for _, pm := range []PackageManager{Pip, PipDist} {
-		t.Run(string(pm), func(t *testing.T) {
-			got, err := VenvPaths(pm, "/app", nil)
-			assert.NilError(t, err)
-			assert.Assert(t, len(got) == 0, "expected no venv paths for %s, got %v", pm, got)
-		})
-	}
-}
-
-func TestCacheVenvPathsPipenv(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	appDir := "/app"
-
-	t.Run("defaults to ~/.local/share/virtualenvs", func(t *testing.T) {
-		t.Setenv("WORKON_HOME", "")
-		_ = os.Unsetenv("WORKON_HOME")
-		t.Setenv("PIPENV_VENV_IN_PROJECT", "")
-		_ = os.Unsetenv("PIPENV_VENV_IN_PROJECT")
-
-		got, err := VenvPaths(Pipenv, appDir, nil)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, got, []string{filepath.Join(home, ".local", "share", "virtualenvs")})
-	})
-
-	t.Run("WORKON_HOME set", func(t *testing.T) {
-		_ = os.Unsetenv("PIPENV_VENV_IN_PROJECT")
-		t.Setenv("WORKON_HOME", "/custom/workon-home")
-
-		got, err := VenvPaths(Pipenv, appDir, nil)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, got, []string{"/custom/workon-home"})
-	})
-
-	t.Run("PIPENV_VENV_IN_PROJECT overrides WORKON_HOME", func(t *testing.T) {
-		t.Setenv("WORKON_HOME", "/custom/workon-home")
-		t.Setenv("PIPENV_VENV_IN_PROJECT", "1")
-
-		got, err := VenvPaths(Pipenv, appDir, nil)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, got, []string{filepath.Join(appDir, ".venvs")})
-	})
-}
-
-func TestCacheVenvPathsPoetry(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	got, err := VenvPaths(Poetry, "/app", nil)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, got, []string{filepath.Join(home, ".cache", "pypoetry", "virtualenvs")})
-}
-
-func TestCacheVenvPathsUV(t *testing.T) {
-	appDir := "/app"
-
-	t.Run("defaults to <app-dir>/.venv", func(t *testing.T) {
-		_ = os.Unsetenv("CIRCLE_WORKING_DIRECTORY")
-
-		got, err := VenvPaths(UV, appDir, nil)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, got, []string{filepath.Join(appDir, ".venv")})
-	})
-
-	t.Run("CIRCLE_WORKING_DIRECTORY set", func(t *testing.T) {
-		t.Setenv("CIRCLE_WORKING_DIRECTORY", "/circle/wd")
-
-		got, err := VenvPaths(UV, appDir, nil)
-		assert.NilError(t, err)
-		assert.DeepEqual(t, got, []string{filepath.Join("/circle/wd", ".venv")})
-	})
-}
-
-// TestCacheVenvPathsOverride verifies that a non-empty override replaces the
-// detected path(s) for every manager, including pip/pip-dist which
-// otherwise have no venv path at all.
-func TestCacheVenvPathsOverride(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	override := []string{"/override/one", "/override/two"}
-
-	for _, pm := range []PackageManager{Pip, PipDist, Pipenv, Poetry, UV} {
-		t.Run(string(pm), func(t *testing.T) {
-			got, err := VenvPaths(pm, "/app", override)
-			assert.NilError(t, err)
-			assert.DeepEqual(t, got, override)
-		})
-	}
-}
-
-// --- PypiPaths ---
-
-func TestCachePypiPaths(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	tests := []struct {
-		pm   PackageManager
-		want []string
-	}{
-		{Pip, []string{
-			filepath.Join(home, ".cache", "pip"),
-			filepath.Join(home, ".pyenv", "versions"),
-			filepath.Join(home, ".local", "lib"),
-		}},
-		{PipDist, []string{
-			filepath.Join(home, ".cache", "pip"),
-			filepath.Join(home, ".pyenv", "versions"),
-			filepath.Join(home, ".local", "lib"),
-		}},
-		{Pipenv, []string{
-			filepath.Join(home, ".cache", "pip"),
-			filepath.Join(home, ".cache", "pipenv"),
-		}},
-		{Poetry, []string{filepath.Join(home, ".cache", "pip")}},
-		{UV, []string{filepath.Join(home, ".cache", "uv")}},
-	}
-
-	for _, tc := range tests {
-		t.Run(string(tc.pm), func(t *testing.T) {
-			got, err := PypiPaths(tc.pm)
+			got, err := VenvPaths(tc.pm, appDir, tc.override)
+			if tc.wantErr != "" {
+				assert.ErrorContains(t, err, tc.wantErr)
+				return
+			}
 			assert.NilError(t, err)
 			assert.DeepEqual(t, got, tc.want)
 		})
 	}
 }
 
-// --- RestoreCache / SaveCache ---
+// TestCachePypiPaths verifies the download and site-packages directories
+// reported for each package manager, and that an unrecognized manager is an
+// error.
+func TestCachePypiPaths(t *testing.T) {
+	home, cache := userDirs(t)
+
+	pipCache := unixOrWindows(
+		filepath.Join(cache, "pip"),
+		filepath.Join(cache, "pip", "Cache"),
+	)
+	pipenvCache := unixOrWindows(
+		filepath.Join(cache, "pipenv"),
+		filepath.Join(cache, "pipenv", "Cache"),
+	)
+	uvCache := unixOrWindows(
+		filepath.Join(cache, "uv"),
+		filepath.Join(cache, "uv", "cache"),
+	)
+	pyenv := unixOrWindows(
+		filepath.Join(home, ".pyenv", "versions"),
+		filepath.Join(home, ".pyenv", "pyenv-win", "versions"),
+	)
+	userLib := unixOrWindows(
+		filepath.Join(home, ".local", "lib"),
+		filepath.Join(os.Getenv("APPDATA"), "Python"),
+	)
+
+	tests := []struct {
+		name    string
+		pm      PackageManager
+		want    []string
+		wantErr string
+	}{
+		{
+			name: "pip caches downloads plus the pyenv and user lib trees",
+			pm:   Pip,
+			want: []string{pipCache, pyenv, userLib},
+		},
+		{
+			name: "pip-dist matches pip",
+			pm:   PipDist,
+			want: []string{pipCache, pyenv, userLib},
+		},
+		{
+			name: "pipenv adds its own cache to pip's",
+			pm:   Pipenv,
+			want: []string{pipCache, pipenvCache},
+		},
+		{
+			name: "poetry downloads through pip",
+			pm:   Poetry,
+			want: []string{pipCache},
+		},
+		{
+			name: "uv uses only its own cache",
+			pm:   UV,
+			want: []string{uvCache},
+		},
+		{
+			name:    "unknown package manager is an error",
+			pm:      "bogus",
+			wantErr: `unknown package manager "bogus"`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := PypiPaths(tc.pm)
+			if tc.wantErr != "" {
+				assert.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			assert.NilError(t, err)
+			assert.DeepEqual(t, got, tc.want)
+		})
+	}
+}
+
+// TestCacheKey verifies the composition of the cache key: the branch and
+// python version components appear only when asked for, the lockfile
+// checksum always terminates the key, a non-empty override short-circuits
+// everything, and a missing lockfile or unresolvable python version is a
+// hard error.
+func TestCacheKey(t *testing.T) {
+	dir := t.TempDir()
+	lockfile := filepath.Join(dir, "requirements.txt")
+	contents := []byte("requests==2.31.0\n")
+	assert.NilError(t, os.WriteFile(lockfile, contents, 0600))
+	sum := fmt.Sprintf("%x", sha256.Sum256(contents))
+
+	missing := filepath.Join(dir, "does-not-exist.lock")
+
+	// Stubbed in for the cases that must not consult a python interpreter:
+	// if they do, the key computation fails and the case fails with it.
+	errNotCalled := errors.New("pythonVersion should not have been called")
+
+	tests := []struct {
+		name          string
+		includeBranch bool
+		includePython bool
+		env           map[string]string
+		lockfile      string
+		override      string
+		version       string
+		versionErr    error
+		want          string
+		wantErr       string
+	}{
+		{
+			name:       "neither branch nor python version",
+			lockfile:   lockfile,
+			versionErr: errNotCalled,
+			want:       "v1-cci_pycache-" + sum,
+		},
+		{
+			name:          "branch only",
+			includeBranch: true,
+			env:           map[string]string{"CIRCLE_BRANCH": "main"},
+			lockfile:      lockfile,
+			versionErr:    errNotCalled,
+			want:          "v1-cci_pycache-main-" + sum,
+		},
+		{
+			name:          "python version only",
+			includePython: true,
+			lockfile:      lockfile,
+			version:       "Python 3.11.4",
+			want:          "v1-cci_pycache-Python 3.11.4-" + sum,
+		},
+		{
+			name:          "branch and python version",
+			includeBranch: true,
+			includePython: true,
+			env:           map[string]string{"CIRCLE_BRANCH": "feature/x"},
+			lockfile:      lockfile,
+			version:       "Python 3.11.4",
+			want:          "v1-cci_pycache-feature/x-Python 3.11.4-" + sum,
+		},
+		{
+			// The branch component is unconditionally prefixed with its
+			// separator, so an unset CIRCLE_BRANCH leaves a bare "-" behind
+			// -- hence the double dash before the checksum.
+			name:          "branch requested but CIRCLE_BRANCH unset",
+			includeBranch: true,
+			lockfile:      lockfile,
+			versionErr:    errNotCalled,
+			want:          "v1-cci_pycache--" + sum,
+		},
+		{
+			name:          "override is returned verbatim without reading anything",
+			includeBranch: true,
+			includePython: true,
+			env:           map[string]string{"CIRCLE_BRANCH": "main"},
+			lockfile:      missing,
+			override:      "my-override-key",
+			versionErr:    errNotCalled,
+			want:          "my-override-key",
+		},
+		{
+			name:       "missing lockfile is an error",
+			lockfile:   missing,
+			versionErr: errNotCalled,
+			wantErr:    "read lockfile",
+		},
+		{
+			name:          "unresolvable python version is an error",
+			includePython: true,
+			lockfile:      lockfile,
+			versionErr:    errors.New("python: command not found"),
+			wantErr:       "resolve python version",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setEnv(t, []string{"CIRCLE_BRANCH"}, tc.env)
+			stubPythonVersion(t, tc.version, tc.versionErr)
+
+			got, err := CacheKey("v1", tc.includeBranch, tc.includePython, tc.lockfile, tc.override)
+			if tc.wantErr != "" {
+				assert.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			assert.NilError(t, err)
+			assert.Equal(t, got, tc.want)
+		})
+	}
+}
 
 // TestCacheRestoreAndSaveRoundTrip verifies that saving under a key and
 // restoring under the same key round-trips a file written into the cached

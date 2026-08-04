@@ -12,112 +12,163 @@ import (
 
 var testBinaries = python.Binaries{Python: "python", Pip: "pip"}
 
-// TestDistCommands_Wheel verifies build-tool=wheel produces "pip install
-// wheel" followed by "python setup.py sdist bdist_wheel --dist-dir
-// <out-dir>", per porting.md's dist command table.
-func TestDistCommands_Wheel(t *testing.T) {
-	commands, err := python.DistCommands(testBinaries, python.DistOptions{
-		BuildTool: "wheel",
-		OutDir:    "./dist",
-	})
-	assert.NilError(t, err)
+// TestDistCommands verifies the exact commands, in order, that each build tool
+// produces: the pip install of the build tool itself followed by the build
+// invocation, with the optional build flags appended in a fixed order before
+// the trailing "." positional argument.
+func TestDistCommands(t *testing.T) {
+	tests := []struct {
+		name    string
+		opts    python.DistOptions
+		want    []python.DistCommand
+		wantErr string
+	}{
+		{
+			name: "wheel",
+			opts: python.DistOptions{BuildTool: "wheel", OutDir: "./dist"},
+			want: []python.DistCommand{
+				{Bin: "pip", Args: []string{"install", "wheel"}},
+				{Bin: "python", Args: []string{"setup.py", "sdist", "bdist_wheel", "--dist-dir", "./dist"}},
+			},
+		},
+		{
+			name: "build with no optional flags",
+			opts: python.DistOptions{BuildTool: "build", OutDir: "./dist"},
+			want: []python.DistCommand{
+				{Bin: "pip", Args: []string{"install", "build"}},
+				{Bin: "python", Args: []string{"-m", "build", "--outdir", "./dist", "."}},
+			},
+		},
+		{
+			name: "build with sdist separate",
+			opts: python.DistOptions{BuildTool: "build", OutDir: "./dist", SdistSeparate: true},
+			want: []python.DistCommand{
+				{Bin: "pip", Args: []string{"install", "build"}},
+				{Bin: "python", Args: []string{"-m", "build", "--outdir", "./dist", "--sdist", "."}},
+			},
+		},
+		{
+			name: "build with wheel separate",
+			opts: python.DistOptions{BuildTool: "build", OutDir: "./dist", WheelSeparate: true},
+			want: []python.DistCommand{
+				{Bin: "pip", Args: []string{"install", "build"}},
+				{Bin: "python", Args: []string{"-m", "build", "--outdir", "./dist", "--wheel", "."}},
+			},
+		},
+		{
+			name: "build with skip dependency check",
+			opts: python.DistOptions{BuildTool: "build", OutDir: "./dist", SkipDependencyCheck: true},
+			want: []python.DistCommand{
+				{Bin: "pip", Args: []string{"install", "build"}},
+				{Bin: "python", Args: []string{"-m", "build", "--outdir", "./dist", "--skip-dependency-check", "."}},
+			},
+		},
+		{
+			name: "build with no isolation",
+			opts: python.DistOptions{BuildTool: "build", OutDir: "./dist", NoIsolation: true},
+			want: []python.DistCommand{
+				{Bin: "pip", Args: []string{"install", "build"}},
+				{Bin: "python", Args: []string{"-m", "build", "--outdir", "./dist", "--no-isolation", "."}},
+			},
+		},
+		{
+			name: "build with all optional flags",
+			opts: python.DistOptions{
+				BuildTool:           "build",
+				OutDir:              "./out",
+				SdistSeparate:       true,
+				WheelSeparate:       true,
+				SkipDependencyCheck: true,
+				NoIsolation:         true,
+			},
+			want: []python.DistCommand{
+				{Bin: "pip", Args: []string{"install", "build"}},
+				{Bin: "python", Args: []string{
+					"-m", "build", "--outdir", "./out",
+					"--sdist", "--wheel", "--skip-dependency-check", "--no-isolation", ".",
+				}},
+			},
+		},
+		{
+			name:    "unknown build tool errors",
+			opts:    python.DistOptions{BuildTool: "bogus", OutDir: "./dist"},
+			wantErr: "bogus",
+		},
+	}
 
-	assert.DeepEqual(t, commands, []python.DistCommand{
-		{Bin: "pip", Args: []string{"install", "wheel"}},
-		{Bin: "python", Args: []string{"setup.py", "sdist", "bdist_wheel", "--dist-dir", "./dist"}},
-	})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := python.DistCommands(testBinaries, tc.opts)
+
+			if tc.wantErr != "" {
+				assert.ErrorContains(t, err, tc.wantErr)
+				assert.Assert(t, got == nil)
+				return
+			}
+			assert.NilError(t, err)
+			assert.DeepEqual(t, got, tc.want)
+		})
+	}
 }
 
-// TestDistCommands_Build_NoExtraFlags verifies build-tool=build with every
-// bool flag left false produces just "pip install build" and
-// "python -m build --outdir <out-dir> .", with none of the optional flags.
-func TestDistCommands_Build_NoExtraFlags(t *testing.T) {
-	commands, err := python.DistCommands(testBinaries, python.DistOptions{
-		BuildTool: "build",
-		OutDir:    "./dist",
-	})
-	assert.NilError(t, err)
-
-	assert.DeepEqual(t, commands, []python.DistCommand{
-		{Bin: "pip", Args: []string{"install", "build"}},
-		{Bin: "python", Args: []string{"-m", "build", "--outdir", "./dist", "."}},
-	})
-}
-
-// TestDistCommands_Build_AllFlags verifies build-tool=build with every bool
-// flag set to true adds --sdist, --wheel, --skip-dependency-check, and
-// --no-isolation (in that order) before the trailing "." positional arg,
-// alongside --outdir.
-func TestDistCommands_Build_AllFlags(t *testing.T) {
-	commands, err := python.DistCommands(testBinaries, python.DistOptions{
-		BuildTool:           "build",
-		OutDir:              "./out",
-		SdistSeparate:       true,
-		WheelSeparate:       true,
-		SkipDependencyCheck: true,
-		NoIsolation:         true,
-	})
-	assert.NilError(t, err)
-
-	assert.DeepEqual(t, commands, []python.DistCommand{
-		{Bin: "pip", Args: []string{"install", "build"}},
-		{Bin: "python", Args: []string{
-			"-m", "build", "--outdir", "./out",
-			"--sdist", "--wheel", "--skip-dependency-check", "--no-isolation", ".",
-		}},
-	})
-}
-
-// TestDistCommands_UnknownBuildTool verifies an unrecognized build tool
-// errors rather than silently returning no commands.
-func TestDistCommands_UnknownBuildTool(t *testing.T) {
-	_, err := python.DistCommands(testBinaries, python.DistOptions{BuildTool: "bogus"})
-	assert.ErrorContains(t, err, "bogus")
-}
-
-// TestDistRunDist verifies RunDist invokes the runner once per DistCommand,
-// in order, with opts.AppDir as the working directory, and stops at the
-// first error.
-func TestDistRunDist(t *testing.T) {
+// TestRunDist verifies RunDist invokes the runner once per command, in order,
+// with opts.AppDir as the working directory, and stops at the first error.
+func TestRunDist(t *testing.T) {
 	type call struct {
 		Bin  string
 		Args []string
 		Dir  string
 	}
-	var calls []call
 
-	run := func(_ context.Context, bin string, args []string, dir string) error {
-		calls = append(calls, call{Bin: bin, Args: args, Dir: dir})
-		return nil
+	errBoom := errors.New("boom")
+
+	tests := []struct {
+		name      string
+		runErr    error
+		wantCalls []call
+		wantErr   error
+	}{
+		{
+			name: "runs every command in the app dir",
+			wantCalls: []call{
+				{Bin: "pip", Args: []string{"install", "wheel"}, Dir: "/app"},
+				{
+					Bin:  "python",
+					Args: []string{"setup.py", "sdist", "bdist_wheel", "--dist-dir", "./dist"},
+					Dir:  "/app",
+				},
+			},
+		},
+		{
+			name:   "stops at the first failing command",
+			runErr: errBoom,
+			wantCalls: []call{
+				{Bin: "pip", Args: []string{"install", "wheel"}, Dir: "/app"},
+			},
+			wantErr: errBoom,
+		},
 	}
 
-	err := python.RunDist(context.Background(), run, testBinaries, python.DistOptions{
-		AppDir:    "/app",
-		BuildTool: "wheel",
-		OutDir:    "./dist",
-	})
-	assert.NilError(t, err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls []call
+			run := func(_ context.Context, bin string, args []string, dir string) error {
+				calls = append(calls, call{Bin: bin, Args: args, Dir: dir})
+				return tc.runErr
+			}
 
-	assert.DeepEqual(t, calls, []call{
-		{Bin: "pip", Args: []string{"install", "wheel"}, Dir: "/app"},
-		{Bin: "python", Args: []string{"setup.py", "sdist", "bdist_wheel", "--dist-dir", "./dist"}, Dir: "/app"},
-	})
-}
+			err := python.RunDist(context.Background(), run, testBinaries, python.DistOptions{
+				AppDir:    "/app",
+				BuildTool: "wheel",
+				OutDir:    "./dist",
+			})
 
-// TestDistRunDist_StopsAtFirstError verifies RunDist doesn't invoke the
-// second command when the first one fails.
-func TestDistRunDist_StopsAtFirstError(t *testing.T) {
-	wantErr := errors.New("boom")
-	calls := 0
-	runFailing := func(context.Context, string, []string, string) error {
-		calls++
-		return wantErr
+			if tc.wantErr != nil {
+				assert.ErrorIs(t, err, tc.wantErr)
+			} else {
+				assert.NilError(t, err)
+			}
+			assert.DeepEqual(t, calls, tc.wantCalls)
+		})
 	}
-
-	err := python.RunDist(context.Background(), runFailing, testBinaries, python.DistOptions{
-		BuildTool: "wheel",
-		OutDir:    "./dist",
-	})
-	assert.ErrorIs(t, err, wantErr)
-	assert.Equal(t, calls, 1, "expected RunDist to stop after the first failing command")
 }

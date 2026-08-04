@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -11,13 +15,12 @@ import (
 	"github.com/circleci/backplane-go/testing/testcontext"
 
 	"github.com/circleci/functions/cmd/setup-python/python"
+	"github.com/circleci/functions/pkg/sdk"
 	"github.com/circleci/functions/pkg/sdk/sdktest"
 )
 
-// stubRunInstall replaces the runInstall seam for the duration of the test,
-// restoring the original on cleanup, so tests can prove the
-// restore->install->save orchestration in installPackagesCmd.Run without
-// exec-ing a real pip/poetry/pipenv/uv.
+// stubRunInstall replaces the runInstall seam for the duration of the test
+// and returns a pointer to the call count.
 func stubRunInstall(t *testing.T, fn func(ctx context.Context, bin string, args []string, appDir string) error) *int {
 	t.Helper()
 	calls := 0
@@ -30,21 +33,38 @@ func stubRunInstall(t *testing.T, fn func(ctx context.Context, bin string, args 
 	return &calls
 }
 
-// setHermeticEnv points HOME at a fresh temp dir, clears the pipenv/branch
-// env vars that would otherwise leak from the host running the test (so
-// cache paths and cache keys are deterministic), puts fake python/pip
-// executables on PATH (so ResolveBinaries doesn't depend on the host's own
-// PATH and never needs to write a python3/pip3 alias), and points BASH_ENV
-// at a scratch file so EnsureAliased never errors even if it did.
+// countingCacheServer starts a plugin server that counts every cache request
+// and reports success. It returns a client for that server and a func
+// reporting how many requests it has received.
+func countingCacheServer(t *testing.T) (*sdk.Client, func() int) {
+	t.Helper()
+	var mu sync.Mutex
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		calls++
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"result": "success"})
+	}))
+	t.Cleanup(srv.Close)
+	return sdk.NewWithBaseURL(srv.URL), func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return calls
+	}
+}
+
+// setHermeticEnv isolates the test from the host: a scratch HOME, no leaked
+// pipenv or branch env vars, fake python and pip on PATH, and a scratch
+// BASH_ENV.
 func setHermeticEnv(t *testing.T) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("WORKON_HOME", "")
-	assert.NilError(t, os.Unsetenv("WORKON_HOME"))
-	t.Setenv("PIPENV_VENV_IN_PROJECT", "")
-	assert.NilError(t, os.Unsetenv("PIPENV_VENV_IN_PROJECT"))
-	t.Setenv("CIRCLE_WORKING_DIRECTORY", "")
-	assert.NilError(t, os.Unsetenv("CIRCLE_WORKING_DIRECTORY"))
+	for _, key := range []string{"WORKON_HOME", "PIPENV_VENV_IN_PROJECT", "CIRCLE_WORKING_DIRECTORY", "CIRCLE_BRANCH"} {
+		t.Setenv(key, "")
+		assert.NilError(t, os.Unsetenv(key))
+	}
 
 	binDir := t.TempDir()
 	for _, name := range []string{"python", "pip"} {
@@ -54,8 +74,7 @@ func setHermeticEnv(t *testing.T) {
 	t.Setenv("BASH_ENV", filepath.Join(t.TempDir(), "env.sh"))
 }
 
-// cachePaths replicates installPackagesCmd.Run's venv+pypi path resolution,
-// so tests can locate the exact directories the command will restore/save.
+// cachePaths resolves the venv and pypi paths Run will restore and save.
 func cachePaths(t *testing.T, pm python.PackageManager, appDir string) []string {
 	t.Helper()
 	venvPaths, err := python.VenvPaths(pm, appDir, nil)
@@ -68,12 +87,9 @@ func cachePaths(t *testing.T, pm python.PackageManager, appDir string) []string 
 	return paths
 }
 
-// TestInstallPackagesCmd_CacheRoundTrip proves the full
-// restore -> install -> save cycle for pkg-manager=pip (no venv, pypi-only)
-// and pkg-manager=poetry (venv-based): a marker file present in the cache
-// path at the time of a first run is captured by SaveCache; once the path is
-// wiped, a second run's RestoreCache (which happens before install) brings
-// the marker back before install runs again.
+// TestInstallPackagesCmd_CacheRoundTrip proves the restore, install, save
+// cycle: a marker file saved by a first run is restored by a second run
+// before install, once the cache path has been wiped in between.
 func TestInstallPackagesCmd_CacheRoundTrip(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -81,14 +97,14 @@ func TestInstallPackagesCmd_CacheRoundTrip(t *testing.T) {
 		setupFiles func(t *testing.T, appDir string)
 	}{
 		{
-			name:       "pip",
+			name:       "pip has no venv and caches pypi only",
 			pkgManager: "pip",
 			setupFiles: func(t *testing.T, appDir string) {
 				assert.NilError(t, os.WriteFile(filepath.Join(appDir, "requirements.txt"), []byte("requests==2.31.0\n"), 0600))
 			},
 		},
 		{
-			name:       "poetry",
+			name:       "poetry caches its venv",
 			pkgManager: "poetry",
 			setupFiles: func(t *testing.T, appDir string) {
 				assert.NilError(t, os.WriteFile(filepath.Join(appDir, "pyproject.toml"), []byte("[tool.poetry]\nname = \"x\"\n"), 0600))
@@ -125,99 +141,156 @@ func TestInstallPackagesCmd_CacheRoundTrip(t *testing.T) {
 			paths := cachePaths(t, pm, appDir)
 			cachedDir := paths[0]
 
-			// SaveCache walks every path's live filesystem contents, so all
-			// of them must exist even though only cachedDir gets a marker.
+			// SaveCache walks every path, so all must exist even though only
+			// cachedDir gets a marker.
 			for _, p := range paths {
 				assert.NilError(t, os.MkdirAll(p, 0750))
 			}
 			assert.NilError(t, os.WriteFile(filepath.Join(cachedDir, "marker"), []byte("hit"), 0600))
 
-			// First run: cache miss on restore (nothing saved yet), install
-			// runs, then save captures the marker file already on disk.
 			assert.NilError(t, cmd.Run(ctx, client))
 			assert.Equal(t, *installs, 1, "expected install to run once")
-			assert.Equal(t, srv.RestoreCacheCalls(), 1, "expected exactly one RestoreCache call")
-			assert.Equal(t, srv.SaveCacheCalls(), 1, "expected exactly one SaveCache call")
 
 			assert.NilError(t, os.RemoveAll(cachedDir))
 
-			// Second run, same cache key: restore (before install) must
-			// repopulate the marker file from the first run's save.
 			assert.NilError(t, cmd.Run(ctx, client))
 			assert.Equal(t, *installs, 2, "expected install to run again")
-			assert.Equal(t, srv.RestoreCacheCalls(), 2)
-			assert.Equal(t, srv.SaveCacheCalls(), 2)
 
 			got, err := os.ReadFile(filepath.Join(cachedDir, "marker")) //nolint:gosec
 			assert.NilError(t, err)
-			assert.Equal(t, string(got), "hit", "expected marker file restored from the first run's save")
+			assert.Equal(t, string(got), "hit", "expected marker restored from the first run's save")
 		})
 	}
 }
 
-// TestInstallPackagesCmd_NoCache_SkipsCacheCalls verifies that --no-cache
-// (Cache: false) results in zero RestoreCache/SaveCache calls to the fake
-// server, even though install still runs.
-func TestInstallPackagesCmd_NoCache_SkipsCacheCalls(t *testing.T) {
-	srv := sdktest.NewServer(t)
-	client := srv.Client()
-	ctx := testcontext.New(t)
-
-	setHermeticEnv(t)
-	appDir := t.TempDir()
-	assert.NilError(t, os.WriteFile(filepath.Join(appDir, "requirements.txt"), []byte("requests==2.31.0\n"), 0600))
-
-	installs := stubRunInstall(t, func(context.Context, string, []string, string) error { return nil })
-
-	cmd := &installPackagesCmd{
-		AppDir:            appDir,
-		CacheVersion:      "v1",
-		PathArgs:          ".",
-		PipDependencyFile: "requirements.txt",
-		PkgManager:        "pip",
-		Cache:             false,
-		PypiCache:         true,
-		VenvCache:         true,
+// TestInstallPackagesCmd_CacheFlags checks which cache requests each
+// combination of --cache, --pypi-cache and --venv-cache issues. Install
+// always runs.
+func TestInstallPackagesCmd_CacheFlags(t *testing.T) {
+	tests := []struct {
+		name      string
+		cache     bool
+		pypiCache bool
+		venvCache bool
+		wantCalls int
+	}{
+		{name: "cache enabled restores and saves", cache: true, pypiCache: true, venvCache: true, wantCalls: 2},
+		{name: "no-cache skips both", cache: false, pypiCache: true, venvCache: true, wantCalls: 0},
+		{name: "no cache buckets selected skips both", cache: true, pypiCache: false, venvCache: false, wantCalls: 0},
+		{name: "pypi only still round trips", cache: true, pypiCache: true, venvCache: false, wantCalls: 2},
 	}
 
-	assert.NilError(t, cmd.Run(ctx, client))
-	assert.Equal(t, *installs, 1, "expected install to still run")
-	assert.Equal(t, srv.RestoreCacheCalls(), 0, "expected no RestoreCache calls with --no-cache")
-	assert.Equal(t, srv.SaveCacheCalls(), 0, "expected no SaveCache calls with --no-cache")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			client, calls := countingCacheServer(t)
+			ctx := testcontext.New(t)
+
+			setHermeticEnv(t)
+			appDir := t.TempDir()
+			assert.NilError(t, os.WriteFile(filepath.Join(appDir, "requirements.txt"), []byte("requests==2.31.0\n"), 0600))
+
+			installs := stubRunInstall(t, func(context.Context, string, []string, string) error { return nil })
+
+			cmd := &installPackagesCmd{
+				AppDir:            appDir,
+				CacheVersion:      "v1",
+				PathArgs:          ".",
+				PipDependencyFile: "requirements.txt",
+				PkgManager:        "pip",
+				Cache:             tc.cache,
+				PypiCache:         tc.pypiCache,
+				VenvCache:         tc.venvCache,
+			}
+
+			assert.NilError(t, cmd.Run(ctx, client))
+			assert.Equal(t, *installs, 1, "expected install to run regardless of caching")
+			assert.Equal(t, calls(), tc.wantCalls)
+		})
+	}
 }
 
-// TestInstallPackagesCmd_InstallArgs verifies that Run invokes runInstall
-// with the exact binary and argv the detected/selected package manager's
-// InstallArgs builds, mirroring porting.md's install-packages command table.
+// TestInstallPackagesCmd_InstallArgs checks the binary and argv Run passes to
+// runInstall for each package manager.
 func TestInstallPackagesCmd_InstallArgs(t *testing.T) {
-	setHermeticEnv(t)
-	appDir := t.TempDir()
-	assert.NilError(t, os.WriteFile(filepath.Join(appDir, "requirements.txt"), []byte("x\n"), 0600))
-
-	srv := sdktest.NewServer(t)
-	client := srv.Client()
-	ctx := testcontext.New(t)
-
-	var gotBin string
-	var gotArgs []string
-	var gotDir string
-	stubRunInstall(t, func(_ context.Context, bin string, args []string, dir string) error {
-		gotBin, gotArgs, gotDir = bin, args, dir
-		return nil
-	})
-
-	cmd := &installPackagesCmd{
-		AppDir:            appDir,
-		CacheVersion:      "v1",
-		PathArgs:          ".",
-		PipDependencyFile: "requirements.txt",
-		PkgManager:        "pip",
-		Args:              "--no-deps --quiet",
-		Cache:             false,
+	tests := []struct {
+		name       string
+		pkgManager string
+		args       string
+		wantBins   []string
+		wantArgs   []string
+	}{
+		{
+			name:       "pip installs from the dependency file",
+			pkgManager: "pip",
+			args:       "--no-deps --quiet",
+			wantBins:   []string{"pip", "pip3"},
+			wantArgs:   []string{"install", "-r", "requirements.txt", "--no-deps", "--quiet"},
+		},
+		{
+			name:       "pip-dist installs the project as editable",
+			pkgManager: "pip-dist",
+			wantBins:   []string{"pip", "pip3"},
+			wantArgs:   []string{"install", "-e", "."},
+		},
+		{
+			name:       "poetry installs without ansi",
+			pkgManager: "poetry",
+			wantBins:   []string{"poetry"},
+			wantArgs:   []string{"install", "--no-ansi"},
+		},
+		{
+			name:       "pipenv installs",
+			pkgManager: "pipenv",
+			wantBins:   []string{"pipenv"},
+			wantArgs:   []string{"install"},
+		},
+		{
+			name:       "uv syncs",
+			pkgManager: "uv",
+			wantBins:   []string{"uv"},
+			wantArgs:   []string{"sync"},
+		},
 	}
 
-	assert.NilError(t, cmd.Run(ctx, client))
-	assert.DeepEqual(t, gotArgs, []string{"install", "-r", "requirements.txt", "--no-deps", "--quiet"})
-	assert.Assert(t, gotBin == "pip" || gotBin == "pip3", "expected pip or pip3, got %q", gotBin)
-	assert.Equal(t, gotDir, appDir)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setHermeticEnv(t)
+			appDir := t.TempDir()
+			assert.NilError(t, os.WriteFile(filepath.Join(appDir, "requirements.txt"), []byte("x\n"), 0600))
+
+			client, _ := countingCacheServer(t)
+			ctx := testcontext.New(t)
+
+			var gotBin, gotDir string
+			var gotArgs []string
+			stubRunInstall(t, func(_ context.Context, bin string, args []string, dir string) error {
+				gotBin, gotArgs, gotDir = bin, args, dir
+				return nil
+			})
+
+			cmd := &installPackagesCmd{
+				AppDir:            appDir,
+				CacheVersion:      "v1",
+				PathArgs:          ".",
+				PipDependencyFile: "requirements.txt",
+				PkgManager:        tc.pkgManager,
+				Args:              tc.args,
+				Cache:             false,
+			}
+
+			assert.NilError(t, cmd.Run(ctx, client))
+			assert.DeepEqual(t, gotArgs, tc.wantArgs)
+			assert.Equal(t, gotDir, appDir)
+			assert.Assert(t, contains(tc.wantBins, gotBin), "got binary %q, want one of %v", gotBin, tc.wantBins)
+		})
+	}
+}
+
+func contains(haystack []string, needle string) bool {
+	for _, s := range haystack {
+		if s == needle {
+			return true
+		}
+	}
+	return false
 }
