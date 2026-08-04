@@ -149,7 +149,7 @@ grep 'setup-python' README.md              # row present
 
 Depends on: G1–G7
 
-- [ ] Everything above is checked off.
+- [x] Everything above is checked off.
 
 **Verify:**
 ```
