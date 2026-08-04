@@ -1,0 +1,226 @@
+package python_test
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"gotest.tools/v3/assert"
+
+	"github.com/circleci/functions/cmd/setup-python/python"
+)
+
+// --- DetectFromDir ---
+
+func TestDetectFromDir(t *testing.T) {
+	tests := []struct {
+		name          string
+		files         []string
+		setupFilePath string
+		wantPM        python.PackageManager
+		wantErr       string
+	}{
+		{
+			name:   "requirements.txt + setup.py -> pip-dist",
+			files:  []string{"requirements.txt", "setup.py"},
+			wantPM: python.PipDist,
+		},
+		{
+			name:          "requirements.txt + custom setup-file-path -> pip-dist",
+			files:         []string{"requirements.txt", "pkg-setup.py"},
+			setupFilePath: "pkg-setup.py",
+			wantPM:        python.PipDist,
+		},
+		{
+			name:   "requirements.txt alone -> pip",
+			files:  []string{"requirements.txt"},
+			wantPM: python.Pip,
+		},
+		{
+			name:   "requirements.txt + pyproject.toml (no setup.py) -> pip",
+			files:  []string{"requirements.txt", "pyproject.toml"},
+			wantPM: python.Pip,
+		},
+		{
+			name:          "requirements.txt + setup-file-path set but file missing -> pip",
+			files:         []string{"requirements.txt"},
+			setupFilePath: "pkg-setup.py",
+			wantPM:        python.Pip,
+		},
+		{
+			name:   "Pipfile -> pipenv",
+			files:  []string{"Pipfile"},
+			wantPM: python.Pipenv,
+		},
+		{
+			name:   "uv.lock -> uv",
+			files:  []string{"uv.lock"},
+			wantPM: python.UV,
+		},
+		{
+			name:   "pyproject.toml alone -> poetry",
+			files:  []string{"pyproject.toml"},
+			wantPM: python.Poetry,
+		},
+		{
+			name:   "pip-dist takes priority over pipenv/uv/poetry",
+			files:  []string{"requirements.txt", "setup.py", "Pipfile", "uv.lock", "pyproject.toml"},
+			wantPM: python.PipDist,
+		},
+		{
+			name:   "pipenv takes priority over uv/poetry",
+			files:  []string{"Pipfile", "uv.lock", "pyproject.toml"},
+			wantPM: python.Pipenv,
+		},
+		{
+			name:   "uv takes priority over poetry",
+			files:  []string{"uv.lock", "pyproject.toml"},
+			wantPM: python.UV,
+		},
+		{
+			name:    "no manager detected",
+			files:   nil,
+			wantErr: "no package manager detected",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, f := range tc.files {
+				assert.NilError(t, os.WriteFile(filepath.Join(dir, f), []byte(""), 0600))
+			}
+
+			pm, err := python.DetectFromDir(dir, tc.setupFilePath)
+
+			if tc.wantErr != "" {
+				assert.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			assert.NilError(t, err)
+			assert.Equal(t, pm, tc.wantPM)
+		})
+	}
+}
+
+// --- Lockfile ---
+
+func TestLockfile(t *testing.T) {
+	tests := []struct {
+		pm   python.PackageManager
+		want string
+	}{
+		{python.Pip, "requirements.txt"},
+		{python.PipDist, "requirements.txt"},
+		{python.Pipenv, "Pipfile.lock"},
+		{python.UV, "uv.lock"},
+		{python.Poetry, "poetry.lock"},
+	}
+
+	for _, tc := range tests {
+		t.Run(string(tc.pm), func(t *testing.T) {
+			assert.Equal(t, tc.pm.Lockfile(), tc.want)
+		})
+	}
+}
+
+// --- Binary ---
+
+func TestBinary(t *testing.T) {
+	tests := []struct {
+		pm   python.PackageManager
+		want string
+	}{
+		{python.Pip, "pip"},
+		{python.PipDist, "pip"},
+		{python.Pipenv, "pipenv"},
+		{python.Poetry, "poetry"},
+		{python.UV, "uv"},
+	}
+
+	for _, tc := range tests {
+		t.Run(string(tc.pm), func(t *testing.T) {
+			assert.Equal(t, tc.pm.Binary(), tc.want)
+		})
+	}
+}
+
+// --- InstallArgs ---
+
+func TestInstallArgs(t *testing.T) {
+	tests := []struct {
+		name           string
+		pm             python.PackageManager
+		dependencyFile string
+		pathArgs       string
+		args           []string
+		want           []string
+	}{
+		{
+			name:           "pip",
+			pm:             python.Pip,
+			dependencyFile: "requirements.txt",
+			want:           []string{"install", "-r", "requirements.txt"},
+		},
+		{
+			name:           "pip with extra args",
+			pm:             python.Pip,
+			dependencyFile: "reqs/dev.txt",
+			args:           []string{"--no-cache-dir"},
+			want:           []string{"install", "-r", "reqs/dev.txt", "--no-cache-dir"},
+		},
+		{
+			name:     "pip-dist",
+			pm:       python.PipDist,
+			pathArgs: ".",
+			want:     []string{"install", "-e", "."},
+		},
+		{
+			name:     "pip-dist with extra args",
+			pm:       python.PipDist,
+			pathArgs: "./pkg",
+			args:     []string{"--no-deps"},
+			want:     []string{"install", "-e", "./pkg", "--no-deps"},
+		},
+		{
+			name: "pipenv",
+			pm:   python.Pipenv,
+			want: []string{"install"},
+		},
+		{
+			name: "pipenv with extra args",
+			pm:   python.Pipenv,
+			args: []string{"--dev"},
+			want: []string{"install", "--dev"},
+		},
+		{
+			name: "poetry",
+			pm:   python.Poetry,
+			want: []string{"install", "--no-ansi"},
+		},
+		{
+			name: "poetry with extra args",
+			pm:   python.Poetry,
+			args: []string{"--no-root"},
+			want: []string{"install", "--no-ansi", "--no-root"},
+		},
+		{
+			name: "uv",
+			pm:   python.UV,
+			want: []string{"sync"},
+		},
+		{
+			name: "uv with extra args",
+			pm:   python.UV,
+			args: []string{"--frozen"},
+			want: []string{"sync", "--frozen"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.pm.InstallArgs(tc.dependencyFile, tc.pathArgs, tc.args)
+			assert.DeepEqual(t, got, tc.want)
+		})
+	}
+}
