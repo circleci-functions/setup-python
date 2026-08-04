@@ -35,11 +35,11 @@ Test must cover all 5 detection branches plus the "no manager detected" error ca
 
 Depends on: G1
 
-- [ ] `cmd/setup-python/python/cache.go` resolves venv/pypi paths per manager
+- [x] `cmd/setup-python/python/cache.go` resolves venv/pypi paths per manager
       per the porting.md table, including `PIPENV_VENV_IN_PROJECT`,
       `WORKON_HOME`, and `CIRCLE_WORKING_DIRECTORY` (uv) branches.
-- [ ] `--venv-path` override replaces the detected venv path(s) for any manager.
-- [ ] Cache key builder produces
+- [x] `--venv-path` override replaces the detected venv path(s) for any manager.
+- [x] Cache key builder produces
       `<cache-version>-cci_pycache-[<branch>-]-[<python-version>-]-<sha256(lockfile)>`,
       with each bracketed component gated by its own flag, and
       `--cache-key-override` bypassing the whole computation.
