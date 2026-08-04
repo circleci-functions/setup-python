@@ -133,15 +133,13 @@ func CacheKey(cacheVersion string, includeBranch, includePython bool, lockfilePa
 }
 
 // pythonVersion returns the trimmed output of running `python --version`,
-// falling back to `python3` if `python` isn't on PATH (see porting.md's
-// "Python/pip binary resolution"). It's a variable rather than a plain
-// function so tests can stub it out without depending on a real python
-// interpreter being installed.
+// using ResolveBinaries so the python3 fallback (see porting.md's "Python/pip
+// binary resolution") has a single source of truth shared with the rest of
+// the package. It's a variable rather than a plain function so tests can
+// stub it out without depending on a real python interpreter being
+// installed.
 var pythonVersion = func() (string, error) {
-	bin := "python"
-	if _, err := exec.LookPath(bin); err != nil {
-		bin = "python3"
-	}
+	bin := ResolveBinaries().Python
 
 	// Python 2 writes its version to stderr; Python 3 writes it to
 	// stdout. CombinedOutput catches whichever it is.

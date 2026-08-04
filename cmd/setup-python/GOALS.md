@@ -55,12 +55,12 @@ toggle combination, override wins outright, correct paths per manager.
 
 Depends on: G1
 
-- [ ] Resolver prefers `python`/`pip` on `PATH`, falls back to `python3`/`pip3`.
-- [ ] The function's own subprocess calls always use the resolved binary directly.
-- [ ] When falling back, calls `bashenv.AddAlias(map[string]string{"python": "python3", "pip": "pip3"})`
+- [x] Resolver prefers `python`/`pip` on `PATH`, falls back to `python3`/`pip3`.
+- [x] The function's own subprocess calls always use the resolved binary directly.
+- [x] When falling back, calls `bashenv.AddAlias(map[string]string{"python": "python3", "pip": "pip3"})`
       (already implemented in `bashenv/bashenv.go`) so later steps in the same
       job get the alias too.
-- [ ] When `python` is already on `PATH`, `AddAlias` is *not* called and
+- [x] When `python` is already on `PATH`, `AddAlias` is *not* called and
       `$BASH_ENV` is untouched.
 
 **Verify:**
