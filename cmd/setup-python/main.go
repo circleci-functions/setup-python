@@ -23,6 +23,7 @@ import (
 
 type cli struct {
 	InstallPackages installPackagesCmd `cmd:"install-packages" help:"Install Python packages using the detected or specified package manager."`
+	Dist            distCmd            `cmd:"dist" help:"Build a Python distribution package via setup.py or PEP 517 build."`
 }
 
 type installPackagesCmd struct {
@@ -39,6 +40,49 @@ type installPackagesCmd struct {
 	PypiCache               bool     `help:"Include the pypi package/download cache in --cache's restore/save, when --cache is true." default:"true" negatable:""`
 	VenvCache               bool     `help:"Include the venv cache in --cache's restore/save, when --cache is true. No-op for pip/pip-dist, which have no venv." default:"true" negatable:""`
 	VenvPath                []string `help:"Override the detected venv path(s) to cache. Repeatable."`
+}
+
+// distCmd builds a Python distribution package via either setup.py
+// (build-tool=wheel, the default) or PEP 517 `python -m build`
+// (build-tool=build), per porting.md's dist flag-mapping table.
+type distCmd struct {
+	AppDir              string `help:"Directory containing the Python project." default:"."`
+	BuildTool           string `help:"Build backend to use." enum:"wheel,build" default:"wheel"`
+	NoIsolation         bool   `help:"Disable build isolation. build-tool=build only; passes --no-isolation to 'python -m build'." default:"false"`
+	OutDir              string `help:"Directory to write the built distribution(s) to." default:"./dist"`
+	SdistSeparate       bool   `help:"Build the sdist as a separate step. build-tool=build only; passes --sdist to 'python -m build'." default:"false"`
+	SkipDependencyCheck bool   `help:"Skip the build dependency check. build-tool=build only; passes --skip-dependency-check to 'python -m build'." default:"false"`
+	WheelSeparate       bool   `help:"Build the wheel as a separate step. build-tool=build only; passes --wheel to 'python -m build'." default:"false"`
+}
+
+// Run resolves the python/pip binaries (same alias behavior as
+// install-packages) and runs the build-tool-appropriate command sequence
+// from python.DistCommands.
+func (c *distCmd) Run(ctx context.Context, _ *sdk.Client) error {
+	if runtime.GOOS == "windows" {
+		return fmt.Errorf("setup-python dist: windows is not yet supported")
+	}
+
+	appDir, err := resolveAppDir(c.AppDir)
+	if err != nil {
+		return err
+	}
+	c.AppDir = appDir
+
+	binaries := python.ResolveBinaries()
+	if err := python.EnsureAliased(binaries); err != nil {
+		return fmt.Errorf("write python/pip alias: %w", err)
+	}
+
+	return python.RunDist(ctx, runBuild, binaries, python.DistOptions{
+		AppDir:              c.AppDir,
+		BuildTool:           c.BuildTool,
+		OutDir:              c.OutDir,
+		NoIsolation:         c.NoIsolation,
+		SdistSeparate:       c.SdistSeparate,
+		SkipDependencyCheck: c.SkipDependencyCheck,
+		WheelSeparate:       c.WheelSeparate,
+	})
 }
 
 // Run resolves the package manager, restores its cache (unless --no-cache),
@@ -87,19 +131,29 @@ func (c *installPackagesCmd) Run(ctx context.Context, client *sdk.Client) error 
 // resolveAppDir replaces c.AppDir with its absolute form, erroring if it
 // doesn't exist or isn't a directory.
 func (c *installPackagesCmd) resolveAppDir() error {
-	appDir, err := filepath.Abs(c.AppDir)
+	appDir, err := resolveAppDir(c.AppDir)
 	if err != nil {
-		return fmt.Errorf("resolve app-dir: %w", err)
-	}
-	info, err := os.Stat(appDir)
-	if err != nil {
-		return fmt.Errorf("app-dir %q: %w", appDir, err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("app-dir %q is not a directory", appDir)
+		return err
 	}
 	c.AppDir = appDir
 	return nil
+}
+
+// resolveAppDir returns dir's absolute form, erroring if it doesn't exist or
+// isn't a directory. Shared by installPackagesCmd and distCmd.
+func resolveAppDir(dir string) (string, error) {
+	appDir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("resolve app-dir: %w", err)
+	}
+	info, err := os.Stat(appDir)
+	if err != nil {
+		return "", fmt.Errorf("app-dir %q: %w", appDir, err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("app-dir %q is not a directory", appDir)
+	}
+	return appDir, nil
 }
 
 // cachePaths returns the venv and/or pypi cache paths for pm, per whether
@@ -206,6 +260,26 @@ var runInstall = func(ctx context.Context, bin string, args []string, appDir str
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%s install: %w", bin, err)
+	}
+	return nil
+}
+
+// runBuild executes bin with args in appDir, forwarding stdout/stderr to the
+// process's own; the dist subcommand's counterpart to runInstall, and the
+// concrete python.Runner passed to python.RunDist. Same package-level
+// variable seam so tests can stub it out without exec-ing a real pip/python.
+var runBuild = func(ctx context.Context, bin string, args []string, appDir string) error {
+	if _, err := exec.LookPath(bin); err != nil {
+		return fmt.Errorf("%s binary not found on PATH", bin)
+	}
+
+	//nolint:gosec // bin is one of a fixed, known set of binary names
+	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Dir = appDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s: %w", bin, err)
 	}
 	return nil
 }

@@ -96,12 +96,12 @@ and one venv-based manager (e.g. `poetry`); `--no-cache` results in zero
 
 Depends on: G1
 
-- [ ] `main.go` wires `distCmd` with every flag from porting.md's `dist` table:
+- [x] `main.go` wires `distCmd` with every flag from porting.md's `dist` table:
       `--app-dir`, `--build-tool` (enum wheel/build), `--no-isolation`,
       `--out-dir`, `--sdist-separate`, `--skip-dependency-check`, `--wheel-separate`.
-- [ ] `build-tool=wheel`: runs `pip install wheel` then
+- [x] `build-tool=wheel`: runs `pip install wheel` then
       `python setup.py sdist bdist_wheel --dist-dir <out-dir>`.
-- [ ] `build-tool=build`: runs `pip install build` then `python -m build`
+- [x] `build-tool=build`: runs `pip install build` then `python -m build`
       with `--outdir`, and conditionally `--sdist`/`--wheel`/`--skip-dependency-check`/
       `--no-isolation` per the corresponding flags.
 
