@@ -73,15 +73,15 @@ go test ./cmd/setup-python/... -run TestAlias -v
 
 Depends on: G1, G2, G3
 
-- [ ] `main.go` wires `installPackagesCmd` with every flag from porting.md's
+- [x] `main.go` wires `installPackagesCmd` with every flag from porting.md's
       `install-packages` flag-mapping table: `--app-dir`, `--args`,
       `--cache-key-override`, `--cache-version`, `--include-branch-in-cache-key`,
       `--include-python-in-cache-key`, `--path-args`, `--pip-dependency-file`,
       `--pkg-manager` (enum), `--cache`, `--pypi-cache`, `--venv-cache`, `--venv-path`.
       No flag for `cache-folder-prefix`, `no_output_timeout`, or `pre-install-steps`
       (dropped per porting.md).
-- [ ] Flow: detect manager → (if `--cache`) restore → install → (if `--cache`) save.
-- [ ] `--no-cache` skips both restore and save calls entirely (not just one).
+- [x] Flow: detect manager → (if `--cache`) restore → install → (if `--cache`) save.
+- [x] `--no-cache` skips both restore and save calls entirely (not just one).
 
 **Verify:**
 ```
