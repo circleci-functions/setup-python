@@ -16,8 +16,8 @@ import (
 
 	"github.com/circleci/backplane-go/testing/testcontext"
 
-	"github.com/circleci/functions/pkg/sdk"
-	"github.com/circleci/functions/pkg/sdk/sdktest"
+	"github.com/circleci-functions/toolkit/sdk"
+	"github.com/circleci-functions/toolkit/sdk/sdktest"
 )
 
 // stubPythonVersion replaces the pythonVersion seam for the duration of the

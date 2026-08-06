@@ -8,7 +8,7 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	"github.com/circleci/functions/cmd/setup-python/python"
+	"github.com/circleci-functions/setup-python/python"
 )
 
 // writeFakeExecutable creates an empty, executable file named name inside dir,

@@ -14,9 +14,9 @@ import (
 
 	"github.com/circleci/backplane-go/testing/testcontext"
 
-	"github.com/circleci/functions/cmd/setup-python/python"
-	"github.com/circleci/functions/pkg/sdk"
-	"github.com/circleci/functions/pkg/sdk/sdktest"
+	"github.com/circleci-functions/setup-python/python"
+	"github.com/circleci-functions/toolkit/sdk"
+	"github.com/circleci-functions/toolkit/sdk/sdktest"
 )
 
 // stubRunInstall replaces the runInstall seam for the duration of the test

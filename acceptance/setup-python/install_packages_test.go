@@ -9,7 +9,7 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	"github.com/circleci/functions/pkg/sdk/sdktest"
+	"github.com/circleci-functions/toolkit/sdk/sdktest"
 )
 
 // TestCLI_InstallPackages_CacheRoundTrip proves, for every supported package

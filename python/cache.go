@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/circleci/functions/pkg/sdk"
+	"github.com/circleci-functions/toolkit/sdk"
 )
 
 // cacheKeyTag identifies setup-python's cache keys.

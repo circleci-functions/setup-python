@@ -15,9 +15,9 @@ import (
 
 	"github.com/alecthomas/kong"
 
-	"github.com/circleci/functions/cmd/setup-python/python"
-	"github.com/circleci/functions/pkg/functionyaml"
-	"github.com/circleci/functions/pkg/sdk"
+	"github.com/circleci-functions/setup-python/python"
+	"github.com/circleci-functions/toolkit/functionyaml"
+	"github.com/circleci-functions/toolkit/sdk"
 )
 
 type cli struct {

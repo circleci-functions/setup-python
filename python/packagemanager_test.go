@@ -7,7 +7,7 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	"github.com/circleci/functions/cmd/setup-python/python"
+	"github.com/circleci-functions/setup-python/python"
 )
 
 // TestDetectFromDir verifies which package manager is inferred from the files

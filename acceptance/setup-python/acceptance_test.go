@@ -37,7 +37,7 @@ func runTests(m *testing.M) (int, error) {
 		Result: &binaryPath,
 		Name:   "setup-python",
 		Target: "../..",
-		Source: "./cmd/setup-python",
+		Source: ".",
 	})
 
 	if err := p.Run(ctx); err != nil {
