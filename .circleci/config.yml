@@ -47,6 +47,12 @@ jobs:
             - setup-python-go-{{ checksum "go.sum" }}-
             - setup-python-go-
       - run: task lint
+      - run:
+          name: Install pip
+          command: |
+            echo 'export PIP_BREAK_SYSTEM_PACKAGES=1' >> "$BASH_ENV"
+            sudo apt-get update
+            sudo apt-get install -y python3-pip
       - run: task test
       - save_cache:
           key: setup-python-go-{{ checksum "go.sum" }}-{{ epoch }}
