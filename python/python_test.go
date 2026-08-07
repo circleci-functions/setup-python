@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
@@ -60,19 +62,20 @@ func TestResolveBinaries(t *testing.T) {
 // when the resolved binaries need one; otherwise $BASH_ENV is left untouched.
 func TestEnsureAliased(t *testing.T) {
 	tests := []struct {
-		name     string
-		binaries python.Binaries
-		want     string // empty means $BASH_ENV must not be written at all
+		name       string
+		binaries   python.Binaries
+		wantHeader string   // empty means $BASH_ENV must not be written at all
+		wantAlias  []string // alias lines, order-independent since AddAlias ranges over a map
 	}{
 		{
-			name:     "alias needed",
-			binaries: python.Binaries{Python: "python3", Pip: "pip3", NeedsAlias: true},
-			want:     "shopt -s expand_aliases\nalias pip=\"pip3\"\nalias python=\"python3\"\n",
+			name:       "alias needed",
+			binaries:   python.Binaries{Python: "python3", Pip: "pip3", NeedsAlias: true},
+			wantHeader: "shopt -s expand_aliases",
+			wantAlias:  []string{`alias pip="pip3"`, `alias python="python3"`},
 		},
 		{
 			name:     "alias not needed",
 			binaries: python.Binaries{Python: "python", Pip: "pip", NeedsAlias: false},
-			want:     "",
 		},
 	}
 
@@ -84,12 +87,20 @@ func TestEnsureAliased(t *testing.T) {
 			assert.NilError(t, python.EnsureAliased(tc.binaries))
 
 			got, err := os.ReadFile(bashEnvPath)
-			if tc.want == "" {
+			if tc.wantHeader == "" {
 				assert.Assert(t, os.IsNotExist(err), "BASH_ENV must be untouched when no alias is needed")
 				return
 			}
 			assert.NilError(t, err)
-			assert.Equal(t, string(got), tc.want)
+
+			lines := strings.Split(strings.TrimSuffix(string(got), "\n"), "\n")
+			assert.Equal(t, lines[0], tc.wantHeader)
+
+			gotAlias := append([]string{}, lines[1:]...)
+			sort.Strings(gotAlias)
+			wantAlias := append([]string{}, tc.wantAlias...)
+			sort.Strings(wantAlias)
+			assert.DeepEqual(t, gotAlias, wantAlias)
 		})
 	}
 }

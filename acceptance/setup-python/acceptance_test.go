@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/circleci/backplane-go/testing/compiler"
-	"github.com/circleci/libsubcmd/testing/runner"
+	"github.com/circleci-functions/toolkit/testing/compiler"
+	"github.com/circleci-functions/toolkit/testing/runner"
 	"gotest.tools/v3/assert"
 )
 

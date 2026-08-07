@@ -12,8 +12,6 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	"github.com/circleci/backplane-go/testing/testcontext"
-
 	"github.com/circleci-functions/setup-python/python"
 	"github.com/circleci-functions/toolkit/sdk"
 	"github.com/circleci-functions/toolkit/sdk/sdktest"
@@ -117,7 +115,7 @@ func TestInstallPackagesCmd_CacheRoundTrip(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := sdktest.NewServer(t)
 			client := srv.Client()
-			ctx := testcontext.New(t)
+			ctx := context.Background()
 
 			setHermeticEnv(t)
 			appDir := t.TempDir()
@@ -183,7 +181,7 @@ func TestInstallPackagesCmd_CacheFlags(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			client, calls := countingCacheServer(t)
-			ctx := testcontext.New(t)
+			ctx := context.Background()
 
 			setHermeticEnv(t)
 			appDir := t.TempDir()
@@ -259,7 +257,7 @@ func TestInstallPackagesCmd_InstallArgs(t *testing.T) {
 			assert.NilError(t, os.WriteFile(filepath.Join(appDir, "requirements.txt"), []byte("x\n"), 0600))
 
 			client, _ := countingCacheServer(t)
-			ctx := testcontext.New(t)
+			ctx := context.Background()
 
 			var gotBin, gotDir string
 			var gotArgs []string

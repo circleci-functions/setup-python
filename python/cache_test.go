@@ -4,6 +4,7 @@
 package python
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -13,8 +14,6 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
-
-	"github.com/circleci/backplane-go/testing/testcontext"
 
 	"github.com/circleci-functions/toolkit/sdk"
 	"github.com/circleci-functions/toolkit/sdk/sdktest"
@@ -377,7 +376,7 @@ func TestCacheKey(t *testing.T) {
 func TestCacheRestoreAndSaveRoundTrip(t *testing.T) {
 	srv := sdktest.NewServer(t)
 	client := srv.Client()
-	ctx := testcontext.New(t)
+	ctx := context.Background()
 
 	dir := t.TempDir()
 	assert.NilError(t, os.WriteFile(filepath.Join(dir, "marker"), []byte("hit"), 0600))
@@ -396,7 +395,7 @@ func TestCacheRestoreAndSaveRoundTrip(t *testing.T) {
 // server never blocks restore/save.
 func TestCacheErrorIsNonFatal(t *testing.T) {
 	client := sdk.NewWithBaseURL("http://127.0.0.1:0")
-	ctx := testcontext.New(t)
+	ctx := context.Background()
 
 	RestoreCache(ctx, client, "the-key")
 	SaveCache(ctx, client, "the-key", []string{t.TempDir()})
