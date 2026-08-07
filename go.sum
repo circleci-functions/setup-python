@@ -207,6 +207,8 @@ github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5P
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/circleci-functions/toolkit v0.1.2 h1:qn3L7T1In5UdxzRONhBu64vcxCp3ci54qpM5LIjFU+Y=
 github.com/circleci-functions/toolkit v0.1.2/go.mod h1:7UwuoqLkPSvKIKkqU7SBR/2ql0I88vdJFYgyFlAN4TA=
+github.com/circleci-functions/toolkit v0.1.3 h1:iOo2R8Fdd6oGUbg+NKC4sOqDiN5HwtgHZTIpWSSfHjM=
+github.com/circleci-functions/toolkit v0.1.3/go.mod h1:7UwuoqLkPSvKIKkqU7SBR/2ql0I88vdJFYgyFlAN4TA=
 github.com/circleci/backplane-go v0.54.36106 h1:JlwpVPLmFpNRdUlgOCr1eH3byPUtMlUuoQTZY08VlSw=
 github.com/circleci/backplane-go v0.54.36106/go.mod h1:zdxUh1I0xvZdfm0NOhFRY4B9XCXeX7YeL6n4ITzQQd8=
 github.com/circleci/libsubcmd v1.0.5088-b321bf5 h1:NrLeTZft/2NyobqgGpDETBepJLdoACUqmwpOww+hxHM=

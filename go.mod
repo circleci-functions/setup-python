@@ -4,7 +4,7 @@ go 1.26.5
 
 require (
 	github.com/alecthomas/kong v1.16.0
-	github.com/circleci-functions/toolkit v0.1.2
+	github.com/circleci-functions/toolkit v0.1.3
 	github.com/circleci/backplane-go v0.54.36106
 	github.com/circleci/libsubcmd v1.0.5088-b321bf5
 	gotest.tools/v3 v3.5.2

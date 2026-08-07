@@ -1,11 +1,9 @@
 package python
 
 import (
-	"fmt"
-	"os"
 	"os/exec"
-	"sort"
-	"strings"
+
+	"github.com/circleci-functions/toolkit/bashenv"
 )
 
 // Binaries holds the python and pip executable names to invoke, and whether
@@ -34,45 +32,5 @@ func EnsureAliased(b Binaries) error {
 	if !b.NeedsAlias {
 		return nil
 	}
-	return addAlias(map[string]string{"python": "python3", "pip": "pip3"})
-}
-
-// addAlias appends a shell alias definition to $BASH_ENV for each name →
-// command pair, so that later steps in the same job resolve name as
-// command. Aliases are ignored by non-interactive shells unless
-// expand_aliases is enabled, so this also enables it.
-// Returns an error if $BASH_ENV is not set.
-func addAlias(aliases map[string]string) error {
-	names := make([]string, 0, len(aliases))
-	for name := range aliases {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	var sb strings.Builder
-	sb.WriteString("shopt -s expand_aliases\n")
-	for _, name := range names {
-		fmt.Fprintf(&sb, "alias %s=%q\n", name, aliases[name])
-	}
-	return appendToBashEnv(sb.String())
-}
-
-// appendToBashEnv appends content to $BASH_ENV.
-// Returns an error if $BASH_ENV is not set.
-func appendToBashEnv(content string) error {
-	bashEnv := os.Getenv("BASH_ENV")
-	if bashEnv == "" {
-		return fmt.Errorf("BASH_ENV must be set to configure")
-	}
-
-	f, err := os.OpenFile(bashEnv, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o666) //nolint:gosec
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-
-	_, err = f.WriteString(content)
-	return err
+	return bashenv.AddAlias(map[string]string{"python": "python3", "pip": "pip3"})
 }
