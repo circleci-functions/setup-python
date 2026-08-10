@@ -1,14 +1,92 @@
 version: 2.1
 
-jobs:
-  hello:
+orbs:
+  toolkit: https://raw.githubusercontent.com/circleci-functions/toolkit/refs/heads/main/orbs/toolkit.yml
+
+executors:
+  go:
     docker:
-      - image: cimg/base:stable
+      - image: cimg/go:1.26
+
+jobs:
+  test:
+    executor: go
     steps:
       - checkout
-      - run: echo "hello world"
+      - toolkit/private-mod-init
+      - restore_cache:
+          keys:
+            - setup-python-go-{{ checksum "go.sum" }}-
+            - setup-python-go-
+      - run: task lint
+      - run:
+          name: Install pip
+          command: |
+            echo 'export PIP_BREAK_SYSTEM_PACKAGES=1' >> "$BASH_ENV"
+            sudo apt-get update
+            sudo apt-get install -y python3-pip
+      - run: task test
+      - save_cache:
+          key: setup-python-go-{{ checksum "go.sum" }}-{{ epoch }}
+          paths:
+            - ~/.cache/go-build
+            - ~/go/pkg/mod
+
+  # Cross-compiles setup-node into ./dist and persists it to the workspace, so
+  # smoke-test exercises exactly what `publish` is about to ship.
+  build:
+    executor: go
+    steps:
+      - checkout
+      - toolkit/private-mod-init
+      - restore_cache:
+          keys:
+            - setup-python-go-{{ checksum "go.sum" }}-
+            - setup-python-go-
+      - run: task dry-run
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist
+
+  publish:
+    executor: go
+    steps:
+      - checkout
+      - toolkit/private-mod-init
+      - restore_cache:
+          keys:
+            - setup-python-go-{{ checksum "go.sum" }}-
+            - setup-python-go-
+      - toolkit/setup-aws-oidc:
+          role_arn: $FUNCTIONS_PUBLISHER_ROLE_ARN
+      - run:
+          name: Extract version from tag
+          command: |
+            VERSION="${CIRCLE_TAG}-$(git rev-parse --short HEAD)"
+            echo "export VERSION=$VERSION" >> "$BASH_ENV"
+      - run:
+          name: Build and publish
+          command: task publish VERSION="$VERSION"
 
 workflows:
-  hello:
+  test-publish:
     jobs:
-      - hello
+      - test:
+          context: [github-readonly]
+          filters:
+            tags:
+              only: /.*/
+      - build:
+          context: [github-readonly]
+          filters:
+            tags:
+              only: /.*/
+      - publish:
+          requires: [test]
+          context: [functions-publisher, github-readonly]
+          filters:
+            tags:
+              only: /^v\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
