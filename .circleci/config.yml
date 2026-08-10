@@ -1,40 +1,12 @@
 version: 2.1
 
 orbs:
-  node: circleci/node@7.2.1
   toolkit: https://raw.githubusercontent.com/circleci-functions/toolkit/refs/heads/main/orbs/toolkit.yml
-
-parameters:
-  node-version:
-    type: string
-    default: "26.4.0"
-    description: >-
-      Node.js version for the setup-node smoke test to install.
-  bun-version:
-    type: string
-    default: "1.3.14"
-    description: >-
-      Bun version for the setup-node smoke test to install.
-  pnpm-version:
-    type: string
-    default: "11.12.0"
-    description: >-
-      pnpm version for the setup-node smoke test to install.
-  yarn-version:
-    type: string
-    default: "1.22.22"
-    description: >-
-      Yarn version for the setup-node smoke test to install.
 
 executors:
   go:
     docker:
       - image: cimg/go:1.26
-  # The smoke test execs the binary `build` just cross-compiled, so it runs
-  # on a bare base image rather than a language-preinstalled one.
-  base:
-    docker:
-      - image: cimg/base:stable
 
 jobs:
   test:
@@ -77,19 +49,6 @@ jobs:
           paths:
             - dist
 
-  # Smoke test for setup-node, run against the binary `build` just
-  # cross-compiled from this commit/tag (rather than a previously published
-  # artifact), so it exercises exactly what `publish` is about to ship.
-  #
-  # Each package manager gets its own fixture dir with a lockfile.
-  smoke-test:
-    executor: base
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run: echo hello
-
   publish:
     executor: go
     steps:
@@ -123,14 +82,8 @@ workflows:
           filters:
             tags:
               only: /.*/
-      - smoke-test:
-          requires: [build]
-          context: [github-readonly]
-          filters:
-            tags:
-              only: /.*/
       - publish:
-          requires: [test, smoke-test]
+          requires: [test]
           context: [functions-publisher, github-readonly]
           filters:
             tags:
