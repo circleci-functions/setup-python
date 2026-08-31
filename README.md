@@ -171,3 +171,37 @@ documented default — e.g. pip's cache is `~/.cache/pip` on Linux,
 `~/Library/Caches/pip` on macOS and `%LocalAppData%\pip\Cache` on Windows.
 The paths in the [Caching](#caching) table above are the Linux ones; the
 macOS and Windows equivalents are used automatically when running there.
+
+## Tests
+
+Three layers, split by what they need rather than by what they cover. All three
+run the CLI (or its packages) through the toolkit's `sdktest.Sandbox`, so
+`$HOME`, `$BASH_ENV` and the cache are always temp locations — a test can never
+install into your real home directory or reach a cache it did not set up.
+
+- **Unit** (`python/`) — the package logic: manager detection, cache path/key
+  computation, install-command construction. Run by `task test`.
+- **CLI contract** (`clitest/`, no build tag) — the compiled binary's flag
+  surface, error paths, and cache-driving contract, run against a fresh
+  in-memory cache. Hermetic: each run's `PATH` holds only no-op `python`/`pip`/
+  package-manager stubs, so `task test` needs no real tool and no network. Run
+  by `task test`.
+- **Acceptance** (`acceptance/`, `//go:build acceptance`) — real installs and
+  dist builds against the real package managers, plus a real cache round trip.
+  Run by `task acceptance`; safe to run locally (a manager missing from `PATH`
+  skips its case).
+
+```bash
+task test        # unit + CLI contract — fast, hermetic, every commit
+task acceptance  # real package managers (network); a live cache when in a job
+```
+
+`task acceptance` uses an in-memory cache locally. In CI the `acceptance` job
+sets `TOOLKIT_CACHE_MODE=live` to exercise CircleCI's own cache — and fails
+loudly rather than silently falling back if it can't reach one. The cache
+round trip feeds the sandbox's per-run nonce to `--cache-version` so the
+write-once cache key is unique to each run, making the save-then-restore exact
+against the live cache. A small CI `smoke` job runs the shipped `./dist`
+artifact end to end — the one thing the in-process suite can't prove: the
+cross-compiled binary works and the `python`/`pip` alias it writes to
+`$BASH_ENV` is sourced into a later job step by the real runner.
