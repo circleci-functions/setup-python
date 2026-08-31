@@ -81,14 +81,21 @@ func sandboxEnv(s *sdktest.Sandbox, extra map[string]string) map[string]string {
 	return env
 }
 
-// installEnv is the extra env every real install/dist run wants: pip's version
-// check off, and virtualenv's periodic PyPI seed-wheel update disabled (it
-// otherwise spawns a detached process that can still be writing under $HOME
-// after the test exits, racing t.TempDir() cleanup).
+// installEnv is the extra env every real install/dist run wants. The sandbox
+// deliberately does not leak the test process's environment, so anything the
+// installed tools need must be passed here explicitly.
 func installEnv() map[string]string {
 	return map[string]string{
 		"PIP_DISABLE_PIP_VERSION_CHECK": "1",
+		// virtualenv otherwise spawns a detached process to check PyPI for
+		// newer seed wheels, which can still be writing under $HOME after the
+		// test exits, racing t.TempDir() cleanup.
 		"VIRTUALENV_NO_PERIODIC_UPDATE": "1",
+		// dist runs `pip install wheel`/`build` into whatever python is on
+		// PATH; on a Debian/Ubuntu system python (PEP 668) that install is
+		// refused without this. In a real job the executor's python provides
+		// it; the sandbox no longer leaks it in, so set it explicitly.
+		"PIP_BREAK_SYSTEM_PACKAGES": "1",
 	}
 }
 
