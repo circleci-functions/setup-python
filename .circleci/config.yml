@@ -60,7 +60,7 @@ jobs:
             TOOLKIT_CACHE_MODE: live
 
   # Cross-compiles setup-python into ./dist and persists it to the workspace, so
-  # smoke exercises exactly what `publish` is about to ship.
+  # smoke-test exercises exactly what `publish` is about to ship.
   build:
     executor: go
     steps:
@@ -80,7 +80,7 @@ jobs:
   # cross-compiled artifact runs a real install, and the python/pip alias it
   # writes to $BASH_ENV is sourced by the real job runner into a LATER step.
   # cimg/base has python3 but no `python`, so the alias path is exercised.
-  smoke:
+  smoke-test:
     executor: base
     steps:
       - checkout
@@ -138,14 +138,14 @@ workflows:
           filters:
             tags:
               only: /.*/
-      - smoke:
+      - smoke-test:
           requires: [build]
           context: [github-readonly]
           filters:
             tags:
               only: /.*/
       - publish:
-          requires: [test, acceptance, smoke]
+          requires: [test, acceptance, smoke-test]
           context: [functions-publisher, github-readonly]
           filters:
             tags:

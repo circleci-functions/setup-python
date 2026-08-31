@@ -201,7 +201,7 @@ sets `TOOLKIT_CACHE_MODE=live` to exercise CircleCI's own cache — and fails
 loudly rather than silently falling back if it can't reach one. The cache
 round trip feeds the sandbox's per-run nonce to `--cache-version` so the
 write-once cache key is unique to each run, making the save-then-restore exact
-against the live cache. A small CI `smoke` job runs the shipped `./dist`
+against the live cache. A small CI `smoke-test` job runs the shipped `./dist`
 artifact end to end — the one thing the in-process suite can't prove: the
 cross-compiled binary works and the `python`/`pip` alias it writes to
 `$BASH_ENV` is sourced into a later job step by the real runner.
