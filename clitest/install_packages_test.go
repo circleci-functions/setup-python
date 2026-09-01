@@ -18,7 +18,7 @@ import (
 //
 // --venv-path pins the cache to one dir this test controls (VenvPaths returns
 // the override outright for any manager, including pip which otherwise caches
-// no venv), and --no-pypi-cache drops the fixed per-tool pypi paths so the
+// no venv), and --pypi-cache=false drops the fixed per-tool pypi paths so the
 // round trip is a single, fully-controlled directory.
 func TestCLI_InstallPackages_CacheRoundTrip(t *testing.T) {
 	tests := []struct {
@@ -42,11 +42,10 @@ func TestCLI_InstallPackages_CacheRoundTrip(t *testing.T) {
 			assert.NilError(t, os.WriteFile(marker, []byte("hit"), 0600))
 
 			args := []string{
-				"install-packages",
 				"--app-dir", appDir,
-				"--pkg-manager", tc.pkgManager,
+				"--package-manager", tc.pkgManager,
 				"--venv-path", scratch,
-				"--no-pypi-cache",
+				"--pypi-cache=false",
 			}
 
 			out, err := run(t, env, args...)
@@ -72,9 +71,9 @@ func TestCLI_InstallPackages_CacheFlags(t *testing.T) {
 		args      []string
 		wantSaved bool
 	}{
-		{name: "cache enabled saves", args: []string{"--venv-path", "SCRATCH", "--no-pypi-cache"}, wantSaved: true},
-		{name: "no-cache skips the save", args: []string{"--no-cache"}, wantSaved: false},
-		{name: "no cache buckets selected skips the save", args: []string{"--no-pypi-cache", "--no-venv-cache"}, wantSaved: false},
+		{name: "cache enabled saves", args: []string{"--venv-path", "SCRATCH", "--pypi-cache=false"}, wantSaved: true},
+		{name: "cache disabled skips the save", args: []string{"--cache=false"}, wantSaved: false},
+		{name: "no cache buckets selected skips the save", args: []string{"--pypi-cache=false", "--venv-cache=false"}, wantSaved: false},
 	}
 
 	for _, tc := range tests {
@@ -83,7 +82,7 @@ func TestCLI_InstallPackages_CacheFlags(t *testing.T) {
 			env, logPath := stubTools(t, pythonStubs...)
 			appDir := copyFixture(t, "pip")
 
-			args := []string{"install-packages", "--app-dir", appDir, "--pkg-manager", "pip"}
+			args := []string{"--app-dir", appDir, "--package-manager", "pip"}
 			for _, a := range tc.args {
 				if a == "SCRATCH" {
 					a = t.TempDir()
@@ -105,9 +104,9 @@ func TestCLI_InstallPackages_CacheFlags(t *testing.T) {
 }
 
 // TestCLI_InstallPackages_InstallArgs checks the binary and argv the CLI hands
-// each package manager, observed through the recording stub. --no-cache keeps
-// the log to just the install invocation (no python-version probe for the
-// cache key).
+// each package manager, observed through the recording stub. --cache=false
+// keeps the log to just the install invocation (no python-version probe for
+// the cache key).
 func TestCLI_InstallPackages_InstallArgs(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -132,7 +131,7 @@ func TestCLI_InstallPackages_InstallArgs(t *testing.T) {
 			env, logPath := stubTools(t, append(pythonStubs, tc.tool)...)
 			appDir := copyFixture(t, tc.fixture)
 
-			args := append([]string{"install-packages", "--app-dir", appDir, "--pkg-manager", tc.pkgManager, "--no-cache"}, tc.extraArgs...)
+			args := append([]string{"--app-dir", appDir, "--package-manager", tc.pkgManager, "--cache=false"}, tc.extraArgs...)
 			out, err := run(t, env, args...)
 			assert.NilError(t, err, "output: %s", out)
 

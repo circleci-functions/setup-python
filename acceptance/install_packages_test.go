@@ -25,7 +25,7 @@ import (
 //
 // --venv-path pins the cache to a single dir this test controls (VenvPaths
 // returns the override outright for any manager, including pip/pip-dist which
-// otherwise have no venv), and --no-pypi-cache drops the per-tool pypi paths
+// otherwise have no venv), and --pypi-cache=false drops the per-tool pypi paths
 // (~/.cache/pip et al) -- their macOS locations ignore XDG_CACHE_HOME, so they
 // would not be sandbox-isolated. The real install command still runs for real;
 // the marker only proves which path the round trip moved.
@@ -74,12 +74,11 @@ func TestAcceptance_InstallPackages_CacheRoundTrip(t *testing.T) {
 			scratch := t.TempDir()
 
 			args := []string{
-				"install-packages",
 				"--app-dir", appDir,
-				"--pkg-manager", tc.pkgManager,
+				"--package-manager", tc.pkgManager,
 				"--cache-version", s.CacheKeyNonce,
 				"--venv-path", scratch,
-				"--no-pypi-cache",
+				"--pypi-cache=false",
 			}
 			if tc.extraArgs != nil {
 				// One "--args=value" token: kong otherwise misparses a value

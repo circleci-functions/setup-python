@@ -1,10 +1,10 @@
 //go:build acceptance
 
 // Package setuppython_test exercises setup-python against real infrastructure:
-// real package-manager installs and dist builds, and a real CircleCI
-// task-agent cache when running inside a job. Tagged out of `task test`
-// because it needs the tools on PATH and (for a live cache) a job. The CLI
-// contract itself is covered hermetically by clitest/.
+// real package-manager installs and a real CircleCI task-agent cache when
+// running inside a job. Tagged out of `task test` because it needs the tools
+// on PATH and (for a live cache) a job. The CLI contract itself is covered
+// hermetically by clitest/.
 package setuppython_test
 
 import (
@@ -81,7 +81,7 @@ func sandboxEnv(s *sdktest.Sandbox, extra map[string]string) map[string]string {
 	return env
 }
 
-// installEnv is the extra env every real install/dist run wants. The sandbox
+// installEnv is the extra env every real install run wants. The sandbox
 // deliberately does not leak the test process's environment, so anything the
 // installed tools need must be passed here explicitly.
 func installEnv() map[string]string {
@@ -91,10 +91,10 @@ func installEnv() map[string]string {
 		// newer seed wheels, which can still be writing under $HOME after the
 		// test exits, racing t.TempDir() cleanup.
 		"VIRTUALENV_NO_PERIODIC_UPDATE": "1",
-		// dist runs `pip install wheel`/`build` into whatever python is on
+		// pip/pip-dist install into a scratch --target on whatever python is on
 		// PATH; on a Debian/Ubuntu system python (PEP 668) that install is
-		// refused without this. In a real job the executor's python provides
-		// it; the sandbox no longer leaks it in, so set it explicitly.
+		// refused without this. In a real job the executor's python allows it;
+		// the sandbox no longer leaks it in, so set it explicitly.
 		"PIP_BREAK_SYSTEM_PACKAGES": "1",
 	}
 }
@@ -109,9 +109,8 @@ func requireTool(t *testing.T, tool string) {
 }
 
 // copyFixture recursively copies the checked-in fixture named by pm into a
-// fresh temp app dir and returns it. It recurses because some fixtures
-// (pip-dist, distproject) carry a package subdirectory alongside their
-// top-level files.
+// fresh temp app dir and returns it. It recurses because the pip-dist fixture
+// carries a package subdirectory alongside its top-level files.
 func copyFixture(t *testing.T, pm string) string {
 	t.Helper()
 	dst := t.TempDir()
