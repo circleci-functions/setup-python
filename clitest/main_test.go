@@ -101,7 +101,7 @@ func stubTools(t *testing.T, tools ...string) (env map[string]string, logPath st
 	return map[string]string{"PATH": dir, "STUB_LOG": logPath}, logPath
 }
 
-// pythonStubs is the set every install/dist run needs on PATH: the CLI resolves
+// pythonStubs is the set every install run needs on PATH: the CLI resolves
 // (and, when computing a python-aware cache key, runs) python/pip before it
 // ever looks at the selected package manager.
 var pythonStubs = []string{"python", "python3", "pip", "pip3"}
@@ -119,9 +119,8 @@ func stubCalls(t *testing.T, logPath string) []string {
 }
 
 // copyFixture recursively copies the checked-in fixture named by pm into a
-// fresh temp app dir and returns it. It recurses because some fixtures
-// (pip-dist, distproject) carry a package subdirectory alongside their
-// top-level files.
+// fresh temp app dir and returns it. It recurses because the pip-dist fixture
+// carries a package subdirectory alongside its top-level files.
 func copyFixture(t *testing.T, pm string) string {
 	t.Helper()
 	dst := t.TempDir()

@@ -29,8 +29,8 @@ jobs:
             - ~/.cache/go-build
             - ~/go/pkg/mod
 
-  # Real package-manager installs and dist builds against a real task-agent
-  # cache (TOOLKIT_CACHE_MODE=live). Runs on the go executor because the suite
+  # Real package-manager installs against a real task-agent cache
+  # (TOOLKIT_CACHE_MODE=live). Runs on the go executor because the suite
   # compiles setup-python in TestMain; the package managers are installed here
   # so the install matrix runs for real.
   acceptance:
@@ -43,9 +43,10 @@ jobs:
           command: |
             sudo apt-get update
             sudo apt-get install -y python3 python3-pip python3-venv
-            # System-wide (not --user) so wheel/build resolve regardless of the
-            # sandbox's temp $HOME, and pipenv/poetry/uv land on PATH.
-            sudo pip3 install --break-system-packages pipenv poetry uv wheel build
+            # System-wide (not --user) so pipenv/poetry/uv land on PATH
+            # regardless of the sandbox's temp $HOME. wheel is needed for the
+            # pip-dist case's --no-build-isolation editable build.
+            sudo pip3 install --break-system-packages pipenv poetry uv wheel
       - restore_cache:
           keys:
             - setup-python-go-{{ checksum "go.sum" }}-
@@ -93,7 +94,7 @@ jobs:
             sudo apt-get install -y python3-pip
       - run:
           name: Install packages with the shipped binary
-          command: ./dist/setup-python/linux/amd64/setup-python install-packages --app-dir internal/testing/testdata/pip --pkg-manager pip --no-cache
+          command: ./dist/setup-python/linux/amd64/setup-python --app-dir internal/testing/testdata/pip --package-manager pip --cache=false
       - run:
           name: python/pip alias resolves in a later step
           command: |

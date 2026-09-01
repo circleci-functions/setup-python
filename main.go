@@ -22,66 +22,24 @@ import (
 )
 
 type cli struct {
-	InstallPackages installPackagesCmd `cmd:"install-packages" help:"Install Python packages using the detected or specified package manager."`
-	Dist            distCmd            `cmd:"dist" help:"Build a Python distribution package via setup.py or PEP 517 build."`
-}
-
-type installPackagesCmd struct {
 	AppDir                  string   `help:"Directory containing the Python project." default:"."`
 	Args                    string   `help:"Extra arguments appended to the install command." default:""`
 	CacheKeyOverride        string   `help:"Use this value verbatim as the cache key instead of the computed one." default:""`
 	CacheVersion            string   `help:"Leading component of the computed cache key; bump to force a cache miss." default:"v1"`
-	IncludeBranchInCacheKey bool     `help:"Include $CIRCLE_BRANCH in the computed cache key." default:"true" negatable:""`
-	IncludePythonInCacheKey bool     `help:"Include the resolved python --version output in the computed cache key." default:"true" negatable:""`
-	PathArgs                string   `help:"Path passed to 'pip install -e' for pkg-manager=pip-dist." default:"."`
+	IncludeBranchInCacheKey bool     `help:"Include $CIRCLE_BRANCH in the computed cache key." default:"true"`
+	IncludePythonInCacheKey bool     `help:"Include the resolved python --version output in the computed cache key." default:"true"`
+	PathArgs                string   `help:"Path passed to 'pip install -e' for package-manager=pip-dist." default:"."`
 	PipDependencyFile       string   `help:"pip/pip-dist dependency file; also doubles as their cache-key lockfile." default:"requirements.txt"`
-	PkgManager              string   `help:"Package manager to use. Auto-detected from project files when 'auto'." enum:"auto,poetry,pipenv,pip,pip-dist,uv" default:"auto"`
-	Cache                   bool     `help:"Restore the venv/pypi caches before install and save them afterwards." default:"true" negatable:""`
-	PypiCache               bool     `help:"Include the pypi package/download cache in --cache's restore/save, when --cache is true." default:"true" negatable:""`
-	VenvCache               bool     `help:"Include the venv cache in --cache's restore/save, when --cache is true. No-op for pip/pip-dist, which have no venv." default:"true" negatable:""`
+	PackageManager          string   `help:"Package manager to use. Auto-detected from project files when 'auto'." enum:"auto,poetry,pipenv,pip,pip-dist,uv" default:"auto"`
+	Cache                   bool     `help:"Restore the venv/pypi caches before install and save them afterwards. Set to false to disable caching." default:"true"`
+	PypiCache               bool     `help:"Include the pypi package/download cache in --cache's restore/save, when --cache is true." default:"true"`
+	VenvCache               bool     `help:"Include the venv cache in --cache's restore/save, when --cache is true. No-op for pip/pip-dist, which have no venv." default:"true"`
 	VenvPath                []string `help:"Override the detected venv path(s) to cache. Repeatable."`
 }
 
-// distCmd builds a Python distribution package via either setup.py
-// (build-tool=wheel) or PEP 517 python -m build (build-tool=build).
-type distCmd struct {
-	AppDir              string `help:"Directory containing the Python project." default:"."`
-	BuildTool           string `help:"Build backend to use." enum:"wheel,build" default:"wheel"`
-	NoIsolation         bool   `help:"Disable build isolation. build-tool=build only; passes --no-isolation to 'python -m build'." default:"false"`
-	OutDir              string `help:"Directory to write the built distribution(s) to." default:"./dist"`
-	SdistSeparate       bool   `help:"Build the sdist as a separate step. build-tool=build only; passes --sdist to 'python -m build'." default:"false"`
-	SkipDependencyCheck bool   `help:"Skip the build dependency check. build-tool=build only; passes --skip-dependency-check to 'python -m build'." default:"false"`
-	WheelSeparate       bool   `help:"Build the wheel as a separate step. build-tool=build only; passes --wheel to 'python -m build'." default:"false"`
-}
-
-// Run resolves the python and pip binaries and runs the command sequence for
-// the selected build tool.
-func (c *distCmd) Run(ctx context.Context, _ *sdk.Client) error {
-	appDir, err := resolveAppDir(c.AppDir)
-	if err != nil {
-		return err
-	}
-	c.AppDir = appDir
-
-	binaries := python.ResolveBinaries()
-	if err := python.EnsureAliased(binaries); err != nil {
-		return fmt.Errorf("write python/pip alias: %w", err)
-	}
-
-	return python.RunDist(ctx, runBuild, binaries, python.DistOptions{
-		AppDir:              c.AppDir,
-		BuildTool:           c.BuildTool,
-		OutDir:              c.OutDir,
-		NoIsolation:         c.NoIsolation,
-		SdistSeparate:       c.SdistSeparate,
-		SkipDependencyCheck: c.SkipDependencyCheck,
-		WheelSeparate:       c.WheelSeparate,
-	})
-}
-
-// Run resolves the package manager, restores its cache (unless --no-cache),
+// Run resolves the package manager, restores its cache (unless --cache=false),
 // runs its install command, and saves the cache back.
-func (c *installPackagesCmd) Run(ctx context.Context, client *sdk.Client) error {
+func (c *cli) Run(ctx context.Context, client *sdk.Client) error {
 	if err := c.resolveAppDir(); err != nil {
 		return err
 	}
@@ -120,35 +78,25 @@ func (c *installPackagesCmd) Run(ctx context.Context, client *sdk.Client) error 
 
 // resolveAppDir replaces c.AppDir with its absolute form, erroring if it
 // doesn't exist or isn't a directory.
-func (c *installPackagesCmd) resolveAppDir() error {
-	appDir, err := resolveAppDir(c.AppDir)
+func (c *cli) resolveAppDir() error {
+	appDir, err := filepath.Abs(c.AppDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("resolve app-dir: %w", err)
+	}
+	info, err := os.Stat(appDir)
+	if err != nil {
+		return fmt.Errorf("app-dir %q: %w", appDir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("app-dir %q is not a directory", appDir)
 	}
 	c.AppDir = appDir
 	return nil
 }
 
-// resolveAppDir returns dir's absolute form, erroring if it doesn't exist or
-// isn't a directory. Shared by installPackagesCmd and distCmd.
-func resolveAppDir(dir string) (string, error) {
-	appDir, err := filepath.Abs(dir)
-	if err != nil {
-		return "", fmt.Errorf("resolve app-dir: %w", err)
-	}
-	info, err := os.Stat(appDir)
-	if err != nil {
-		return "", fmt.Errorf("app-dir %q: %w", appDir, err)
-	}
-	if !info.IsDir() {
-		return "", fmt.Errorf("app-dir %q is not a directory", appDir)
-	}
-	return appDir, nil
-}
-
 // cachePaths returns the venv and/or pypi cache paths for pm, per whether
 // --venv-cache/--pypi-cache are set.
-func (c *installPackagesCmd) cachePaths(pm python.PackageManager) ([]string, error) {
+func (c *cli) cachePaths(pm python.PackageManager) ([]string, error) {
 	var paths []string
 	if c.VenvCache {
 		venvPaths, err := python.VenvPaths(pm, c.AppDir, c.VenvPath)
@@ -169,9 +117,9 @@ func (c *installPackagesCmd) cachePaths(pm python.PackageManager) ([]string, err
 
 // restoreCache computes the cache key and restores paths under it, returning
 // the empty string (telling the caller to skip the eventual save) when
-// caching is disabled or there's nothing to cache (both --no-pypi-cache and
-// --no-venv-cache).
-func (c *installPackagesCmd) restoreCache(ctx context.Context, client *sdk.Client, pm python.PackageManager, paths []string) (string, error) {
+// caching is disabled or there's nothing to cache (both --pypi-cache=false and
+// --venv-cache=false).
+func (c *cli) restoreCache(ctx context.Context, client *sdk.Client, pm python.PackageManager, paths []string) (string, error) {
 	if !c.Cache || len(paths) == 0 {
 		return "", nil
 	}
@@ -187,7 +135,7 @@ func (c *installPackagesCmd) restoreCache(ctx context.Context, client *sdk.Clien
 
 // installPackages runs pm's install command in c.AppDir. pip and pip-dist
 // use the resolved pip binary; every other manager uses its own name.
-func (c *installPackagesCmd) installPackages(ctx context.Context, pm python.PackageManager, binaries python.Binaries) error {
+func (c *cli) installPackages(ctx context.Context, pm python.PackageManager, binaries python.Binaries) error {
 	installBin := pm.Binary()
 	if pm == python.Pip || pm == python.PipDist {
 		installBin = binaries.Pip
@@ -198,13 +146,13 @@ func (c *installPackagesCmd) installPackages(ctx context.Context, pm python.Pack
 
 // resolvePackageManager returns the package manager from the flag, or by
 // detecting it from files in AppDir when the flag is "auto".
-func (c *installPackagesCmd) resolvePackageManager() (python.PackageManager, error) {
-	if c.PkgManager != "auto" {
-		return python.PackageManager(c.PkgManager), nil
+func (c *cli) resolvePackageManager() (python.PackageManager, error) {
+	if c.PackageManager != "auto" {
+		return python.PackageManager(c.PackageManager), nil
 	}
 	pm, err := python.DetectFromDir(c.AppDir, "")
 	if err != nil {
-		return "", fmt.Errorf("%w; use --pkg-manager to specify one explicitly", err)
+		return "", fmt.Errorf("%w; use --package-manager to specify one explicitly", err)
 	}
 	return pm, nil
 }
@@ -249,24 +197,6 @@ var runInstall = func(ctx context.Context, bin string, args []string, appDir str
 	return nil
 }
 
-// runBuild executes bin with args in appDir, forwarding stdout and stderr.
-// It's a variable so tests can stub it without a real python installed.
-var runBuild = func(ctx context.Context, bin string, args []string, appDir string) error {
-	if _, err := exec.LookPath(bin); err != nil {
-		return fmt.Errorf("%s binary not found on PATH", bin)
-	}
-
-	//nolint:gosec // bin is one of a fixed, known set of binary names
-	cmd := exec.CommandContext(ctx, bin, args...)
-	cmd.Dir = appDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%s: %w", bin, err)
-	}
-	return nil
-}
-
 func main() {
 	sdk.Run(run)
 }
@@ -275,7 +205,7 @@ func run(ctx context.Context, client *sdk.Client) error {
 	var flags cli
 	kCtx := kong.Parse(&flags,
 		kong.Name("setup-python"),
-		kong.Description("Install Python packages and manage their venv/pypi caches.\n\nExample:\n  circleci run setup-python@<version> install-packages --app-dir ./service"),
+		kong.Description("Install Python packages using the detected or specified package manager, restoring/saving its venv and pypi caches around the install.\n\nExample:\n\n    circleci run setup-python@<version> -- --app-dir ./service"),
 		kong.UsageOnError(),
 		functionyaml.Embed(),
 	)
