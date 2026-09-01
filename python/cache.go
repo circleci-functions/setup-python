@@ -168,12 +168,12 @@ var pythonVersion = func() (string, error) {
 // RestoreCache restores the CircleCI job cache entry under key. Failures,
 // including running outside a CircleCI job, are logged rather than returned.
 func RestoreCache(ctx context.Context, client *sdk.Client, key string) {
-	_, err := client.RestoreCache(ctx, []string{key})
+	_, err := client.RestoreCache(ctx, []string{key}, sdk.WithStepName("Restore Python package cache"))
 	sdk.LogCacheErr("restore", err)
 }
 
 // SaveCache saves paths under key to the CircleCI job cache. Failures are
 // logged rather than returned.
 func SaveCache(ctx context.Context, client *sdk.Client, key string, paths []string) {
-	sdk.LogCacheErr("save", client.SaveCache(ctx, key, paths))
+	sdk.LogCacheErr("save", client.SaveCache(ctx, key, paths, sdk.WithStepName("Save Python package cache")))
 }

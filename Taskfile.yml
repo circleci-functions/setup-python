@@ -17,9 +17,14 @@ tasks:
       - go tool golangci-lint run ./...
 
   test:
-    desc: Run unit and acceptance tests (hermetic, no network)
+    desc: Run unit and hermetic CLI tests (no network, no real package managers)
     cmds:
       - go tool gotestsum -- ./...
+
+  acceptance:
+    desc: Run acceptance tests against real package managers (network required; safe to run locally)
+    cmds:
+      - go test -tags acceptance -v -timeout 20m ./acceptance/...
 
   tidy:
     desc: Tidy go.mod / go.sum
@@ -33,9 +38,9 @@ tasks:
       - git diff --exit-code -- go.mod go.sum
 
   dry-run:
-    desc: Cross-compile setup-node locally, without uploading
+    desc: Cross-compile setup-python locally, without uploading
     cmds:
-      - go tool release --name setup-node --version v0.0.0-dryrun --dry-run
+      - go tool release --name setup-python --version v0.0.0-dryrun --dry-run
 
   ci:
     desc: Run everything CI runs (lint + test + dry-run)
@@ -45,8 +50,8 @@ tasks:
       - task: dry-run
 
   publish:
-    desc: Build and publish setup-node to S3 (VERSION required)
+    desc: Build and publish setup-python to S3 (VERSION required)
     requires:
       vars: [VERSION]
     cmds:
-      - go tool release --name setup-node --version "{{.VERSION}}"
+      - go tool release --name setup-python --version "{{.VERSION}}"

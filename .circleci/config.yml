@@ -7,6 +7,9 @@ executors:
   go:
     docker:
       - image: cimg/go:1.26
+  base:
+    docker:
+      - image: cimg/base:stable
 
 jobs:
   test:
@@ -19,12 +22,6 @@ jobs:
             - setup-python-go-{{ checksum "go.sum" }}-
             - setup-python-go-
       - run: task lint
-      - run:
-          name: Install pip
-          command: |
-            echo 'export PIP_BREAK_SYSTEM_PACKAGES=1' >> "$BASH_ENV"
-            sudo apt-get update
-            sudo apt-get install -y python3-pip
       - run: task test
       - save_cache:
           key: setup-python-go-{{ checksum "go.sum" }}-{{ epoch }}
@@ -32,7 +29,37 @@ jobs:
             - ~/.cache/go-build
             - ~/go/pkg/mod
 
-  # Cross-compiles setup-node into ./dist and persists it to the workspace, so
+  # Real package-manager installs and dist builds against a real task-agent
+  # cache (TOOLKIT_CACHE_MODE=live). Runs on the go executor because the suite
+  # compiles setup-python in TestMain; the package managers are installed here
+  # so the install matrix runs for real.
+  acceptance:
+    executor: go
+    steps:
+      - checkout
+      - toolkit/private-mod-init
+      - run:
+          name: Install Python and package managers
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y python3 python3-pip python3-venv
+            # System-wide (not --user) so wheel/build resolve regardless of the
+            # sandbox's temp $HOME, and pipenv/poetry/uv land on PATH.
+            sudo pip3 install --break-system-packages pipenv poetry uv wheel build
+      - restore_cache:
+          keys:
+            - setup-python-go-{{ checksum "go.sum" }}-
+            - setup-python-go-
+      - run:
+          name: Run acceptance tests
+          command: task acceptance
+          environment:
+            # Use the job's own cache rather than the in-memory stand-in, so the
+            # round-trips exercise the real thing. The suite fails rather than
+            # falling back if it can't reach it.
+            TOOLKIT_CACHE_MODE: live
+
+  # Cross-compiles setup-python into ./dist and persists it to the workspace, so
   # smoke-test exercises exactly what `publish` is about to ship.
   build:
     executor: go
@@ -48,6 +75,30 @@ jobs:
           root: .
           paths:
             - dist
+
+  # The one property the in-process suite can't prove: the shipped
+  # cross-compiled artifact runs a real install, and the python/pip alias it
+  # writes to $BASH_ENV is sourced by the real job runner into a LATER step.
+  # cimg/base has python3 but no `python`, so the alias path is exercised.
+  smoke-test:
+    executor: base
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install pip
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y python3-pip
+      - run:
+          name: Install packages with the shipped binary
+          command: ./dist/setup-python/linux/amd64/setup-python install-packages --app-dir internal/testing/testdata/pip --pkg-manager pip --no-cache
+      - run:
+          name: python/pip alias resolves in a later step
+          command: |
+            python --version
+            pip --version
 
   publish:
     executor: go
@@ -77,13 +128,24 @@ workflows:
           filters:
             tags:
               only: /.*/
+      - acceptance:
+          context: [github-readonly]
+          filters:
+            tags:
+              only: /.*/
       - build:
           context: [github-readonly]
           filters:
             tags:
               only: /.*/
+      - smoke-test:
+          requires: [build]
+          context: [github-readonly]
+          filters:
+            tags:
+              only: /.*/
       - publish:
-          requires: [test]
+          requires: [test, acceptance, smoke-test]
           context: [functions-publisher, github-readonly]
           filters:
             tags:
