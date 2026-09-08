@@ -46,7 +46,7 @@ func (c *cli) Run(ctx context.Context, client *sdk.Client) error {
 
 	binaries := python.ResolveBinaries()
 	if err := python.EnsureAliased(binaries); err != nil {
-		return fmt.Errorf("write python/pip alias: %w", err)
+		return fmt.Errorf("link python/pip: %w", err)
 	}
 
 	pm, err := c.resolvePackageManager()
