@@ -4,7 +4,7 @@ go 1.26.5
 
 require (
 	github.com/alecthomas/kong v1.16.0
-	github.com/circleci-functions/toolkit v0.1.8-0.20260908191415-43b23199335d
+	github.com/circleci-functions/toolkit v0.1.8
 	gotest.tools/v3 v3.5.2
 )
 
