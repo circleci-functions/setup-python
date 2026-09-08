@@ -161,3 +161,26 @@ func TestVerifyPython(t *testing.T) {
 	err = verifyPython(filepath.Join(dir, "missing"))
 	assert.ErrorContains(t, err, "could not report its version")
 }
+
+// The production path, where nothing tells pathlink which directory to use.
+// python3 is on PATH by definition here — that is why an alias is needed —
+// and a run that stopped at "already resolvable" would link nothing at all.
+func TestLinkAliases_LinksWithoutBeingToldTheDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script stand-in for python is not executable on Windows")
+	}
+
+	dir := t.TempDir()
+	writeFakePython(t, dir, "python3", "Python 3.12.0")
+	writeFakeExecutable(t, dir, "pip3")
+	t.Setenv("PATH", dir)
+
+	// No dir: pathlink discovers one from PATH, as it does in a job.
+	assert.NilError(t, linkAliases(Binaries{Python: "python3", Pip: "pip3", NeedsAlias: true}, "", dir))
+
+	for _, name := range []string{"python", "pip"} {
+		_, err := os.Lstat(filepath.Join(dir, name))
+		assert.NilError(t, err, "%s must be linked beside the python3 that was found", name)
+	}
+	assertRuns(t, dir, "python", filepath.Join(dir, "python3"))
+}
