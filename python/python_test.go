@@ -1,16 +1,15 @@
-package python_test
+// Internal test package (not python_test) so tests can drive the linkAliases
+// seam, which links into a temp directory rather than the real PATH.
+package python
 
 import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
-
-	"github.com/circleci-functions/setup-python/python"
 )
 
 // writeFakeExecutable creates an empty, executable file named name inside dir,
@@ -19,10 +18,40 @@ import (
 // considers files with a $PATHEXT extension.
 func writeFakeExecutable(t *testing.T, dir, name string) {
 	t.Helper()
+	assert.NilError(t, os.WriteFile(filepath.Join(dir, exeName(name)), []byte("#!/bin/sh\n"), 0o755))
+}
+
+// writeFakePython creates an executable named name inside dir that reports
+// version, so pathlink's Verify has something to ask. Shell scripts are not
+// executable on Windows, so callers skip there.
+func writeFakePython(t *testing.T, dir, name, version string) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	assert.NilError(t, os.WriteFile(path, []byte("#!/bin/sh\necho '"+version+"'\n"), 0o755))
+	return path
+}
+
+// exeName mirrors what pathlink links under on each platform.
+func exeName(name string) string {
 	if runtime.GOOS == "windows" {
-		name += ".exe"
+		return name + ".exe"
 	}
-	assert.NilError(t, os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\n"), 0o755))
+	return name
+}
+
+// assertRuns checks that dir/name runs want: a symlink everywhere but Windows,
+// where pathlink writes shims that invoke the target by absolute path.
+func assertRuns(t *testing.T, dir, name, want string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		shim, err := os.ReadFile(filepath.Join(dir, name+".bat"))
+		assert.NilError(t, err)
+		assert.Assert(t, strings.Contains(string(shim), want), "%s must invoke %s, got %s", name, want, shim)
+		return
+	}
+	target, err := os.Readlink(filepath.Join(dir, name))
+	assert.NilError(t, err)
+	assert.Equal(t, target, want)
 }
 
 // TestResolveBinaries verifies python and pip are preferred when python is on
@@ -31,17 +60,17 @@ func TestResolveBinaries(t *testing.T) {
 	tests := []struct {
 		name   string
 		onPath []string
-		want   python.Binaries
+		want   Binaries
 	}{
 		{
 			name:   "python on PATH",
 			onPath: []string{"python", "pip"},
-			want:   python.Binaries{Python: "python", Pip: "pip", NeedsAlias: false},
+			want:   Binaries{Python: "python", Pip: "pip", NeedsAlias: false},
 		},
 		{
 			name:   "only python3 on PATH",
 			onPath: []string{"python3", "pip3"},
-			want:   python.Binaries{Python: "python3", Pip: "pip3", NeedsAlias: true},
+			want:   Binaries{Python: "python3", Pip: "pip3", NeedsAlias: true},
 		},
 	}
 
@@ -53,54 +82,105 @@ func TestResolveBinaries(t *testing.T) {
 			}
 			t.Setenv("PATH", dir)
 
-			assert.DeepEqual(t, python.ResolveBinaries(), tc.want)
+			assert.DeepEqual(t, ResolveBinaries(), tc.want)
 		})
 	}
 }
 
-// TestEnsureAliased verifies the python/pip alias is appended to $BASH_ENV only
-// when the resolved binaries need one; otherwise $BASH_ENV is left untouched.
+// TestEnsureAliased verifies python and pip are linked to python3 and pip3
+// only when the resolved binaries need it; otherwise nothing is linked. A link
+// rather than a $BASH_ENV alias, so a later step resolves them in any shell.
 func TestEnsureAliased(t *testing.T) {
 	tests := []struct {
-		name       string
-		binaries   python.Binaries
-		wantHeader string   // empty means $BASH_ENV must not be written at all
-		wantAlias  []string // alias lines, order-independent since AddAlias ranges over a map
+		name     string
+		binaries Binaries
+		onPath   []string
+		wantLink map[string]string // linked name -> name in FromDir it runs
 	}{
 		{
-			name:       "alias needed",
-			binaries:   python.Binaries{Python: "python3", Pip: "pip3", NeedsAlias: true},
-			wantHeader: "shopt -s expand_aliases",
-			wantAlias:  []string{`alias pip="pip3"`, `alias python="python3"`},
+			name:     "alias needed",
+			binaries: Binaries{Python: "python3", Pip: "pip3", NeedsAlias: true},
+			onPath:   []string{"python3", "pip3"},
+			wantLink: map[string]string{
+				"python3": "python3",
+				"pip3":    "pip3",
+				"python":  "python3",
+				"pip":     "pip3",
+			},
 		},
 		{
 			name:     "alias not needed",
-			binaries: python.Binaries{Python: "python", Pip: "pip", NeedsAlias: false},
+			binaries: Binaries{Python: "python", Pip: "pip", NeedsAlias: false},
+			onPath:   []string{"python", "pip"},
+		},
+		{
+			// No python at all: the install step reports that, so there is
+			// nothing to link and nothing to fail on here.
+			name:     "no python3 to link",
+			binaries: Binaries{Python: "python3", Pip: "pip3", NeedsAlias: true},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			bashEnvPath := filepath.Join(t.TempDir(), "env.sh")
-			t.Setenv("BASH_ENV", bashEnvPath)
+			fromDir, binDir := t.TempDir(), t.TempDir()
+			for _, name := range tc.onPath {
+				writeFakeExecutable(t, fromDir, name)
+			}
+			t.Setenv("PATH", fromDir)
 
-			assert.NilError(t, python.EnsureAliased(tc.binaries))
+			assert.NilError(t, linkAliases(tc.binaries, binDir, fromDir))
 
-			got, err := os.ReadFile(bashEnvPath)
-			if tc.wantHeader == "" {
-				assert.Assert(t, os.IsNotExist(err), "BASH_ENV must be untouched when no alias is needed")
+			if len(tc.wantLink) == 0 {
+				entries, err := os.ReadDir(binDir)
+				assert.NilError(t, err)
+				assert.Equal(t, len(entries), 0, "nothing must be linked when no alias is needed")
 				return
 			}
-			assert.NilError(t, err)
-
-			lines := strings.Split(strings.TrimSuffix(string(got), "\n"), "\n")
-			assert.Equal(t, lines[0], tc.wantHeader)
-
-			gotAlias := append([]string{}, lines[1:]...)
-			sort.Strings(gotAlias)
-			wantAlias := append([]string{}, tc.wantAlias...)
-			sort.Strings(wantAlias)
-			assert.DeepEqual(t, gotAlias, wantAlias)
+			for name, target := range tc.wantLink {
+				assertRuns(t, binDir, name, filepath.Join(fromDir, exeName(target)))
+			}
 		})
 	}
+}
+
+// TestVerifyPython verifies the Verify hook accepts a python and rejects
+// anything else resolving under the name, which is what catches a link
+// pointing at a lookalike.
+func TestVerifyPython(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script stand-in for python is not executable on Windows")
+	}
+	dir := t.TempDir()
+
+	assert.NilError(t, verifyPython(writeFakePython(t, dir, "python3", "Python 3.12.0")))
+
+	err := verifyPython(writeFakePython(t, dir, "notpython", "Ruby 3.3.0"))
+	assert.ErrorContains(t, err, "not a Python version")
+
+	err = verifyPython(filepath.Join(dir, "missing"))
+	assert.ErrorContains(t, err, "could not report its version")
+}
+
+// The production path, where nothing tells pathlink which directory to use.
+// python3 is on PATH by definition here — that is why an alias is needed —
+// and a run that stopped at "already resolvable" would link nothing at all.
+func TestLinkAliases_LinksWithoutBeingToldTheDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script stand-in for python is not executable on Windows")
+	}
+
+	dir := t.TempDir()
+	writeFakePython(t, dir, "python3", "Python 3.12.0")
+	writeFakeExecutable(t, dir, "pip3")
+	t.Setenv("PATH", dir)
+
+	// No dir: pathlink discovers one from PATH, as it does in a job.
+	assert.NilError(t, linkAliases(Binaries{Python: "python3", Pip: "pip3", NeedsAlias: true}, "", dir))
+
+	for _, name := range []string{"python", "pip"} {
+		_, err := os.Lstat(filepath.Join(dir, name))
+		assert.NilError(t, err, "%s must be linked beside the python3 that was found", name)
+	}
+	assertRuns(t, dir, "python", filepath.Join(dir, "python3"))
 }
