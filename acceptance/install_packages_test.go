@@ -74,6 +74,7 @@ func TestAcceptance_InstallPackages_CacheRoundTrip(t *testing.T) {
 			scratch := t.TempDir()
 
 			args := []string{
+				"install-packages",
 				"--app-dir", appDir,
 				"--package-manager", tc.pkgManager,
 				"--cache-version", s.CacheKeyNonce,

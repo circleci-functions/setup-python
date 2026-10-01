@@ -42,6 +42,7 @@ func TestCLI_InstallPackages_CacheRoundTrip(t *testing.T) {
 			assert.NilError(t, os.WriteFile(marker, []byte("hit"), 0600))
 
 			args := []string{
+				"install-packages",
 				"--app-dir", appDir,
 				"--package-manager", tc.pkgManager,
 				"--venv-path", scratch,
@@ -82,7 +83,7 @@ func TestCLI_InstallPackages_CacheFlags(t *testing.T) {
 			env, logPath := stubTools(t, pythonStubs...)
 			appDir := copyFixture(t, "pip")
 
-			args := []string{"--app-dir", appDir, "--package-manager", "pip"}
+			args := []string{"install-packages", "--app-dir", appDir, "--package-manager", "pip"}
 			for _, a := range tc.args {
 				if a == "SCRATCH" {
 					a = t.TempDir()
@@ -131,7 +132,7 @@ func TestCLI_InstallPackages_InstallArgs(t *testing.T) {
 			env, logPath := stubTools(t, append(pythonStubs, tc.tool)...)
 			appDir := copyFixture(t, tc.fixture)
 
-			args := append([]string{"--app-dir", appDir, "--package-manager", tc.pkgManager, "--cache=false"}, tc.extraArgs...)
+			args := append([]string{"install-packages", "--app-dir", appDir, "--package-manager", tc.pkgManager, "--cache=false"}, tc.extraArgs...)
 			out, err := run(t, env, args...)
 			assert.NilError(t, err, "output: %s", out)
 
