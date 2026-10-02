@@ -63,6 +63,10 @@ func Installed(root string) bool {
 type Result struct {
 	// Dir is the directory python resolves from.
 	Dir string
+	// Root is the root of the install python runs: Options.Root, unless a
+	// .python-version file or $PYENV_VERSION has pyenv run its own install of
+	// the same version.
+	Root string
 	// Pyenv is the name the install was registered with pyenv as, when python
 	// was already on PATH through pyenv's shims, and "" otherwise.
 	Pyenv string
@@ -108,7 +112,7 @@ func Link(opts Options) (Result, error) {
 		return Result{}, err
 	}
 
-	result := Result{Dir: res.Dir}
+	result := Result{Dir: res.Dir, Root: opts.Root}
 	if err := linkPips(opts.Root, res.Dir, pips); err != nil {
 		return result, err
 	}

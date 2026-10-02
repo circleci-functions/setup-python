@@ -59,7 +59,7 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 	c.reportLinked(version, root, linked)
 
 	if c.PipVersion != "" {
-		if err := installPip(ctx, root, c.PipVersion); err != nil {
+		if err := installPip(ctx, linked.Root, c.PipVersion); err != nil {
 			return err
 		}
 	}
@@ -80,6 +80,9 @@ func (c *installCmd) reportLinked(version, root string, linked pythonpath.Result
 	fmt.Fprintf(os.Stderr, "setup-python: Python %s installed at %s, linked into %s\n", version, root, dir)
 	if linked.Pyenv != "" {
 		fmt.Fprintf(os.Stderr, "setup-python: registered Python %s with pyenv as %s, and made it pyenv's global version\n", version, linked.Pyenv)
+	}
+	if linked.Root != root {
+		fmt.Fprintf(os.Stderr, "setup-python: pyenv runs its own Python %s from %s here, as a .python-version file or $PYENV_VERSION selects\n", version, linked.Root)
 	}
 	for _, d := range linked.PipDirs {
 		fmt.Fprintf(os.Stderr, "setup-python: also linked pip into %s, where another pip came first on PATH\n", d)

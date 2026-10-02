@@ -35,7 +35,7 @@ func TestLink_DiscoversDirOnPath(t *testing.T) {
 
 	res, err := Link(Options{Root: root, Version: "3.13.1", Path: onPath})
 	assert.NilError(t, err)
-	assert.DeepEqual(t, res, Result{Dir: onPath})
+	assert.DeepEqual(t, res, Result{Dir: onPath, Root: root})
 	for _, name := range []string{"python", "python3", "python3.13", "pip", "pip3", "pip3.13"} {
 		target, err := os.Readlink(filepath.Join(onPath, name))
 		assert.NilError(t, err, name)

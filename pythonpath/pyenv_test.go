@@ -27,6 +27,7 @@ func fakePyenv(t *testing.T, preinstalled string) string {
 			"global) printf '%s\\n' \"$2\" > \"" + root + "/version\" ;;\n" +
 			"rehash) : > \"" + root + "/rehashed\" ;;\n" +
 			"which) echo \"" + root + "/versions/$v/bin/$2\" ;;\n" +
+			"prefix) echo \"" + root + "/versions/$v\" ;;\n" +
 			"version) echo \"$v (set by " + root + "/version)\" ;;\n" +
 			"esac\n",
 		"shims/python": "#!/bin/sh\n" + selected + "\nexec \"" + root + "/versions/$v/bin/python\" \"$@\"\n",
@@ -44,7 +45,7 @@ func TestLink_RegistersWithPyenv(t *testing.T) {
 
 	res, err := Link(Options{Root: install, Version: "3.13.1", Path: filepath.Join(root, "shims")})
 	assert.NilError(t, err)
-	assert.DeepEqual(t, res, Result{Dir: filepath.Join(root, "shims"), Pyenv: "3.13.1"})
+	assert.DeepEqual(t, res, Result{Dir: filepath.Join(root, "shims"), Root: install, Pyenv: "3.13.1"})
 
 	target, err := os.Readlink(filepath.Join(root, "versions", "3.13.1"))
 	assert.NilError(t, err)
@@ -86,7 +87,30 @@ func TestLink_PyenvVersionOverridesGlobal(t *testing.T) {
 	t.Setenv("PYENV_VERSION", "3.12.0")
 
 	_, err := Link(Options{Root: install, Version: "3.13.1", Path: filepath.Join(root, "shims")})
-	assert.ErrorContains(t, err, "pyenv runs 3.12.0 (set by "+root+"/version) here rather than the Python setup-python installed")
+	assert.ErrorContains(t, err, `pyenv runs 3.12.0 (set by `+root+`/version) here, whose python reports "Python 3.12.0" rather than Python 3.13.1`)
+}
+
+// TestLink_AcceptsPyenvsOwnInstallOfTheVersion covers a .python-version naming
+// a version pyenv already has, as on an image that ships it: pyenv runs its
+// own install rather than setup-python's, which is just as good.
+func TestLink_AcceptsPyenvsOwnInstallOfTheVersion(t *testing.T) {
+	install := fakeInstall(t, "")
+	root := fakePyenv(t, "3.13.1")
+	t.Setenv("PYENV_VERSION", "3.13.1")
+
+	res, err := Link(Options{Root: install, Version: "3.13.1", Path: filepath.Join(root, "shims")})
+	assert.NilError(t, err)
+	assert.DeepEqual(t, res, Result{Dir: filepath.Join(root, "shims"), Root: filepath.Join(root, "versions", "3.13.1"), Pyenv: "3.13.1-setup-python"})
+}
+
+func TestLink_RejectsPyenvsOwnInstallBuiltDifferently(t *testing.T) {
+	install := fakeInstall(t, "")
+	root := fakePyenv(t, "3.13.1")
+	assert.NilError(t, os.WriteFile(filepath.Join(root, "versions", "3.13.1", "bin", "python3.13t"), nil, 0600))
+	t.Setenv("PYENV_VERSION", "3.13.1")
+
+	_, err := Link(Options{Root: install, Version: "3.13.1", Path: filepath.Join(root, "shims")})
+	assert.ErrorContains(t, err, "pyenv runs 3.13.1 (set by "+root+"/version) here, which is free-threaded")
 }
 
 func TestPyenvRoot(t *testing.T) {

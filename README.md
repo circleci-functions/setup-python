@@ -72,9 +72,11 @@ pyenv's global version, and the shims rehashed. pyenv then runs it, and
 rehashes after `pip install`, so what pip installs resolves by name too.
 
 A `.python-version` file or `$PYENV_VERSION` takes precedence over pyenv's
-global version. If either selects another Python where setup-python runs, it
-fails rather than leave later steps running a Python other than the one asked
-for.
+global version. Where either selects pyenv's own install of the version asked
+for, as on an image that ships it, pyenv keeps running that one, and
+`--pip-version` applies to it. If either selects any other Python where
+setup-python runs, it fails rather than leave later steps running a Python
+other than the one asked for.
 
 ### Where the list of builds comes from
 

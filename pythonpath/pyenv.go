@@ -50,21 +50,29 @@ func linkWithPyenv(root string, opts Options) (Result, error) {
 		}
 	}
 	shims := filepath.Join(root, "shims")
-	if err := verifyPyenv(pyenv, shims, opts.Root, opts.Version); err != nil {
+	selected, err := verifyPyenv(pyenv, shims, opts.Root, opts.Version)
+	if err != nil {
 		return Result{}, err
 	}
-	return Result{Dir: shims, Pyenv: name}, nil
+	return Result{Dir: shims, Root: selected, Pyenv: name}, nil
 }
 
 // pyenvName is the name to register the install with pyenv as: its version,
 // with pyenv's t suffix for a free-threaded build, so a .python-version naming
 // the version or its major.minor selects it.
 func pyenvName(root, version string) string {
-	minor, _ := minorVersion(version)
-	if _, err := os.Lstat(filepath.Join(BinDir(root), "python"+minor+"t")); err == nil {
+	if freethreaded(root, version) {
 		return version + "t"
 	}
 	return version
+}
+
+// freethreaded reports whether the install at root is a free-threaded build
+// of version.
+func freethreaded(root, version string) bool {
+	minor, _ := minorVersion(version)
+	_, err := os.Lstat(filepath.Join(BinDir(root), "python"+minor+"t"))
+	return err == nil
 }
 
 // registerWithPyenv links the install at install into the versions of the
@@ -91,22 +99,37 @@ func registerWithPyenv(root, install, name string) (string, error) {
 	return "", fmt.Errorf("register with pyenv: %s already holds %s and %s-setup-python", filepath.Join(root, "versions"), name, name)
 }
 
-// verifyPyenv checks pyenv's shims run the install at install. A
+// verifyPyenv checks pyenv's shims run Python version, built the same way as
+// the install at install, and returns the root of the install they run. A
 // .python-version file or $PYENV_VERSION takes precedence over pyenv's global
-// version, so either can leave pyenv running another Python.
-func verifyPyenv(pyenv func(...string) (string, error), shims, install, version string) error {
-	which, err := pyenv("which", "python")
-	want, _ := filepath.EvalSymlinks(install)
-	got, _ := filepath.EvalSymlinks(strings.TrimSpace(which))
-	if err != nil || want == "" || !strings.HasPrefix(got, want+string(os.PathSeparator)) {
-		selected, _ := pyenv("version")
-		return fmt.Errorf("pyenv runs %s here rather than the Python setup-python installed: a .python-version file or $PYENV_VERSION takes precedence over pyenv's global version",
-			strings.TrimSpace(selected))
+// version, so either can select another install, such as one of the same
+// version pyenv installed itself, which is as good as setup-python's own.
+func verifyPyenv(pyenv func(...string) (string, error), shims, install, version string) (string, error) {
+	selected := func() string {
+		out, _ := pyenv("version")
+		return strings.TrimSpace(out)
 	}
 	if err := reportsVersion(filepath.Join(shims, "python"), version); err != nil {
-		return fmt.Errorf("pyenv's python %w", err)
+		return "", fmt.Errorf("pyenv runs %s here, whose python %w: a .python-version file or $PYENV_VERSION takes precedence over pyenv's global version",
+			selected(), err)
 	}
-	return nil
+	out, err := pyenv("prefix")
+	if err != nil {
+		return "", err
+	}
+	root, _, _ := strings.Cut(strings.TrimSpace(out), string(os.PathListSeparator))
+	if sameFile(root, install) {
+		return install, nil
+	}
+	if want := freethreaded(install, version); freethreaded(root, version) != want {
+		kind := "free-threaded"
+		if want {
+			kind = "not free-threaded"
+		}
+		return "", fmt.Errorf("pyenv runs %s here, which is %s: a .python-version file or $PYENV_VERSION takes precedence over pyenv's global version",
+			selected(), kind)
+	}
+	return root, nil
 }
 
 // pyenvCommand returns a function running the pyenv at root: the pyenv on
