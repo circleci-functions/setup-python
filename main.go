@@ -1,7 +1,6 @@
-// Command setup-python installs a project's dependencies, through its
-// install-packages subcommand, with the detected (or explicitly selected)
-// package manager, restoring/saving its venv and pypi cache directories via
-// the CircleCI job cache around the install.
+// Command setup-python installs Python and, through its install-packages
+// subcommand, a project's dependencies with the detected (or explicitly
+// selected) package manager, caching what each downloads.
 //
 // Supported platforms: linux, darwin, and windows.
 package main
@@ -16,7 +15,8 @@ import (
 )
 
 type cli struct {
-	InstallPackages installPackagesCmd `cmd:"" default:"withargs" help:"Install the project's dependencies with its package manager, restoring/saving its venv and pypi caches around the install."`
+	Install         installCmd         `cmd:"" default:"withargs" help:"Install Python and put python and pip on PATH. Runs when no command is given."`
+	InstallPackages installPackagesCmd `cmd:"" help:"Install the project's dependencies with its package manager, restoring/saving its venv and pypi caches around the install."`
 }
 
 func main() {
@@ -27,7 +27,7 @@ func run(ctx context.Context, client *sdk.Client) error {
 	var flags cli
 	kCtx := kong.Parse(&flags,
 		kong.Name("setup-python"),
-		kong.Description("Install Python packages using the detected or specified package manager, restoring/saving its venv and pypi caches around the install.\n\nExample:\n\n    circleci run setup-python@<version> -- install-packages --app-dir ./service"),
+		kong.Description("Install Python, and optionally a project's dependencies, caching what each downloads.\n\nExamples:\n  circleci run setup-python@<version> -- --python-version 3.13\n  circleci run setup-python@<version> -- install-packages --app-dir ./service"),
 		kong.UsageOnError(),
 		functionyaml.Embed(),
 	)
