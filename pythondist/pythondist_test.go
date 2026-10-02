@@ -164,6 +164,19 @@ func TestInstall_UnixLayoutRuns(t *testing.T) {
 	assert.Equal(t, target, "python3.13")
 }
 
+func TestInstall_LinksPythonWhereTheBuildHasNone(t *testing.T) {
+	skip.If(t, runtime.GOOS == "windows", "the Unix archive holds symlinks")
+	rel := fakedist.Release{Version: "3.11.4", NoBinPython: true}
+	srv := fakedist.New(t, rel)
+	dest := filepath.Join(t.TempDir(), "python")
+
+	assert.NilError(t, pythondist.Install(context.Background(), srv.Download(rel), dest))
+
+	target, err := os.Readlink(filepath.Join(dest, "bin", "python"))
+	assert.NilError(t, err)
+	assert.Equal(t, target, "python3")
+}
+
 func TestInstall_ReplacesIncompleteInstall(t *testing.T) {
 	skip.If(t, runtime.GOOS == "windows", "the Unix archive holds symlinks")
 	rel := fakedist.Release{Version: "3.13.1"}

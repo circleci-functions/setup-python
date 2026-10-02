@@ -58,10 +58,27 @@ func Install(ctx context.Context, d Download, dest string) error {
 	if _, err := os.Stat(root); err != nil {
 		return fmt.Errorf("%s has no %s directory", name, archiveRoot)
 	}
+	if err := linkPython(root); err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
 	if err := os.RemoveAll(dest); err != nil {
 		return err
 	}
 	return os.Rename(root, dest)
+}
+
+// linkPython gives a Unix install at root the bin/python that builds made
+// before 20240224 lack, pointing at python3, so that python runs it by name
+// like any later build, including through pyenv's shims.
+func linkPython(root string) error {
+	bin := filepath.Join(root, "bin")
+	if _, err := os.Lstat(filepath.Join(bin, "python3")); err != nil {
+		return nil
+	}
+	if _, err := os.Lstat(filepath.Join(bin, "python")); err == nil {
+		return nil
+	}
+	return os.Symlink("python3", filepath.Join(bin, "python"))
 }
 
 // download writes the file at url to f, starting over on each retry.

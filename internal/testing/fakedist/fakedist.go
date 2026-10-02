@@ -30,6 +30,9 @@ type Release struct {
 	// Version is as python --version reports it, e.g. 3.13.1 or 3.15.0rc2.
 	Version      string
 	Freethreaded bool
+	// NoBinPython leaves bin/python out of a Unix archive, as builds made
+	// before 20240224 do.
+	NoBinPython bool
 	// Platform defaults to the host.
 	Platform pythondist.Platform
 }
@@ -214,7 +217,9 @@ func Archive(rel Release) []byte {
 		}
 		dir("bin/")
 		file("bin/"+exe, pythonScript(rel.Version), 0755)
-		link("bin/python", "python"+minor)
+		if !rel.NoBinPython {
+			link("bin/python", "python"+minor)
+		}
 		link("bin/python3", "python"+minor)
 		for _, pip := range []string{"pip", "pip3", "pip" + minor} {
 			file("bin/"+pip, "#!/bin/sh\nexec \"$(dirname \"$0\")/python"+minor+"\" -m pip \"$@\"\n", 0755)

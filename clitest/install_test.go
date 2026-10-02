@@ -21,6 +21,7 @@ import (
 )
 
 var releases = []fakedist.Release{
+	{Version: "3.10.12", NoBinPython: true},
 	{Version: "3.12.4"},
 	{Version: "3.13.0"},
 	{Version: "3.13.1"},
@@ -75,6 +76,7 @@ func TestCLI_Install_ResolvesVersion(t *testing.T) {
 	}{
 		{name: "minor", args: []string{"--python-version", "3.13"}, want: "Python 3.13.1"},
 		{name: "exact", args: []string{"--python-version", "3.13.0"}, want: "Python 3.13.0"},
+		{name: "build without bin/python", args: []string{"--python-version", "3.10.12"}, want: "Python 3.10.12"},
 		{name: "range", args: []string{"--python-version", ">=3.12 <3.13"}, want: "Python 3.12.4"},
 		{name: "newest", args: []string{"--python-version", "3.x"}, want: "Python 3.13.1"},
 		{name: "prerelease fallback", args: []string{"--python-version", "3.14", "--allow-prereleases"}, want: "Python 3.14.0rc1"},
