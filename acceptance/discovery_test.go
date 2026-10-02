@@ -70,6 +70,7 @@ func TestAcceptance_InstallsOntoTheRealPath(t *testing.T) {
 		"--cache-nonce", s.CacheKeyNonce,
 	}
 	out := run(t, "", installArgs...)
+	t.Logf("setup-python: %s", out)
 	assert.Assert(t, !strings.Contains(out, "from cache"),
 		"a per-run nonce must miss the cache, so this install downloads for real; got: %s", out)
 
