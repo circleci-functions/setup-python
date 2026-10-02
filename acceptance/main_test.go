@@ -24,6 +24,12 @@ import (
 	"github.com/circleci-functions/toolkit/testing/runner"
 )
 
+// binaryPathEnvVar names a prebuilt setup-python to test, for an executor with
+// no Go toolchain to compile one with. The smoke jobs set it, and pair it with
+// a cross-compiled copy of this suite. A relative path is resolved here, since
+// the suite runs the binary from a working directory of its own.
+const binaryPathEnvVar = "SETUP_PYTHON_BINARY"
+
 var binaryPath string
 
 func TestMain(m *testing.M) {
@@ -36,6 +42,18 @@ func TestMain(m *testing.M) {
 }
 
 func runTests(m *testing.M) (int, error) {
+	if bin := os.Getenv(binaryPathEnvVar); bin != "" {
+		abs, err := filepath.Abs(bin)
+		if err != nil {
+			return 0, fmt.Errorf("%s=%q: %w", binaryPathEnvVar, bin, err)
+		}
+		if _, err := os.Stat(abs); err != nil {
+			return 0, fmt.Errorf("%s=%q: %w", binaryPathEnvVar, bin, err)
+		}
+		binaryPath = abs
+		return m.Run(), nil
+	}
+
 	p := compiler.NewParallel(1)
 	defer p.Cleanup()
 
@@ -66,7 +84,23 @@ type runFunc func(t *testing.T, extraEnv map[string]string, args ...string) (str
 func sandbox(t *testing.T) (*sdktest.Sandbox, runFunc) {
 	t.Helper()
 	s := sdktest.NewSandbox(t, sdktest.WithLiveCache())
-	return s, func(t *testing.T, extraEnv map[string]string, args ...string) (string, error) {
+	return s, newRun(s)
+}
+
+// sandboxInMemory returns a sandbox backed by a fresh in-memory cache,
+// regardless of TOOLKIT_CACHE_MODE, for a test whose cache key recurs across
+// pipeline runs: the live cache's keys are write-once, so an earlier run's
+// entry, saved from that run's temp dirs, would be all a restore could find.
+func sandboxInMemory(t *testing.T) (*sdktest.Sandbox, runFunc) {
+	t.Helper()
+	s := sdktest.NewSandbox(t)
+	return s, newRun(s)
+}
+
+// newRun returns a run function that executes the binary in s's environment,
+// with extraEnv applied on top.
+func newRun(s *sdktest.Sandbox) runFunc {
+	return func(t *testing.T, extraEnv map[string]string, args ...string) (string, error) {
 		t.Helper()
 		r := runner.New(t, binaryPath, runner.WithSandboxEnv(sandboxEnv(s, extraEnv)))
 		_, err := r.Run(args...)
