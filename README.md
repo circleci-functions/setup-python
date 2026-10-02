@@ -84,8 +84,8 @@ Each release of setup-python has the list of builds from
 [uv's download metadata](https://github.com/astral-sh/uv/blob/main/crates/uv-python/download-metadata.json)
 built in, so resolving a version needs no network. Only when no built-in build
 matches — a Python release newer than your setup-python — does it fetch uv's
-current list. A range such as `3.13` resolves to the newest release in the
-built-in list; upgrade setup-python to pick up newer ones.
+current list. A partial version such as `3.13` resolves to the newest release
+in the built-in list; upgrade setup-python to pick up newer ones.
 
 ### pip installs
 
@@ -221,8 +221,9 @@ job.
 ## Platform support
 
 Linux, macOS and Windows, on amd64 and arm64, plus Linux on 32-bit ARM,
-ppc64le, s390x and riscv64, wherever python-build-standalone publishes a build
-for the release you ask for. A version spec only matches releases with a build
+ppc64le and s390x, the platforms setup-python itself is published for,
+wherever python-build-standalone publishes a build for the release you ask
+for. A version spec only matches releases with a build
 for the machine it runs on.
 
 - **Alpine and other musl distros** get python-build-standalone's musl builds,
