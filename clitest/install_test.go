@@ -382,7 +382,7 @@ func TestCLI_Install_Errors(t *testing.T) {
 		{name: "no free-threaded build", args: []string{"--python-version", "3.12t"}, wantErr: `no Python release matches "3.12t" for ` + host(t).String() + ", free-threaded"},
 		{name: "invalid version", args: []string{"--python-version", "banana"}, wantErr: `invalid Python version spec "banana"`},
 		{name: "pypy", args: []string{"--python-version", "pypy3.10"}, wantErr: "setup-python installs CPython only"},
-		{name: "missing version file", args: []string{"--python-version-file", "/nonexistent/.python-version"}, wantErr: "python-version-file"},
+		{name: "missing version file", args: []string{"--python-version-file", "/nonexistent/.python-version"}, wantErr: "python-version-file: open /nonexistent/.python-version: no such file or directory"},
 		{name: "checksum mismatch", args: []string{"--python-version", "3.13"}, corrupt: true, wantErr: "checksum mismatch"},
 	}
 	for _, tc := range tests {
