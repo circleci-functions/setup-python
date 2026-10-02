@@ -1,16 +1,16 @@
 package clitest_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
+	"gotest.tools/v3/assert/cmp"
 	"gotest.tools/v3/skip"
 
 	"github.com/circleci-functions/toolkit/sdk/sdktest"
@@ -257,37 +257,51 @@ func TestCLI_Install_PipVersion(t *testing.T) {
 
 func TestCLI_Install_Cache(t *testing.T) {
 	name := "3.13.1-" + host(t).String()
+	tests := []struct {
+		name       string
+		args       []string
+		wantSuffix string
+	}{
+		{name: "default"},
+		{name: "nonce", args: []string{"--cache-nonce", "run-42"}, wantSuffix: "-run-42"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, binDir := installEnv(t)
+			s, run := sandbox(t)
+			rec, pluginURL := newCacheRecorder(t)
 
-	srv, binDir := installEnv(t)
-	s, run := sandbox(t)
-	rec, pluginURL := newCacheRecorder(t)
-	root := filepath.Join(s.Home, ".cache", "setup-python", name)
-	wantKey := "setup-python-toolchain-v1-" + name + "-" + rootHash(root)
+			out, err := run(t, map[string]string{"CIRCLECI_PLUGIN_URL": pluginURL}, installArgs(srv, binDir, append([]string{"--python-version", "3.13"}, tc.args...)...)...)
+			assert.NilError(t, err, "output: %s", out)
 
-	out, err := run(t, map[string]string{"CIRCLECI_PLUGIN_URL": pluginURL}, installArgs(srv, binDir, "--python-version", "3.13")...)
-	assert.NilError(t, err, "output: %s", out)
-
-	assert.Equal(t, len(rec.restores), 1)
-	assert.DeepEqual(t, rec.restores[0].Keys, []string{wantKey})
-	assert.Equal(t, rec.restores[0].Name, "Restoring Python 3.13.1")
-	assert.Equal(t, len(rec.saves), 1)
-	assert.Equal(t, rec.saves[0].Key, wantKey)
-	assert.DeepEqual(t, rec.saves[0].Paths, []string{root})
-	assert.Equal(t, rec.saves[0].Name, "Saving Python 3.13.1")
+			assert.Equal(t, len(rec.saves), 1)
+			key := rec.saves[0].Key
+			assert.Assert(t, cmp.Regexp(`^setup-python-toolchain-v1-`+regexp.QuoteMeta(name)+`-[0-9a-f]{8}`+regexp.QuoteMeta(tc.wantSuffix)+`$`, key))
+			assert.DeepEqual(t, rec.saves[0].Paths, []string{filepath.Join(s.Home, ".cache", "setup-python", name)})
+			assert.Equal(t, rec.saves[0].Name, "Saving Python 3.13.1")
+			assert.Equal(t, len(rec.restores), 1)
+			assert.DeepEqual(t, rec.restores[0].Keys, []string{key})
+			assert.Equal(t, rec.restores[0].Name, "Restoring Python 3.13.1")
+		})
+	}
 }
 
-func TestCLI_Install_CacheNonce(t *testing.T) {
-	srv, binDir := installEnv(t)
-	s, run := sandbox(t)
-	rec, pluginURL := newCacheRecorder(t)
+// TestCLI_Install_CacheKeyDependsOnWhereTheInstallLives covers executors whose
+// $HOME differs: the cache restores to the path it saved, so they must not
+// share an entry.
+func TestCLI_Install_CacheKeyDependsOnWhereTheInstallLives(t *testing.T) {
+	keys := map[string]bool{}
+	for range 2 {
+		srv, binDir := installEnv(t)
+		_, run := sandbox(t)
+		rec, pluginURL := newCacheRecorder(t)
 
-	out, err := run(t, map[string]string{"CIRCLECI_PLUGIN_URL": pluginURL}, installArgs(srv, binDir, "--python-version", "3.13", "--cache-nonce", "run-42")...)
-	assert.NilError(t, err, "output: %s", out)
-
-	name := "3.13.1-" + host(t).String()
-	wantKey := "setup-python-toolchain-v1-" + name + "-" + rootHash(filepath.Join(s.Home, ".cache", "setup-python", name)) + "-run-42"
-	assert.DeepEqual(t, rec.restores[0].Keys, []string{wantKey})
-	assert.Equal(t, rec.saves[0].Key, wantKey)
+		out, err := run(t, map[string]string{"CIRCLECI_PLUGIN_URL": pluginURL}, installArgs(srv, binDir, "--python-version", "3.13")...)
+		assert.NilError(t, err, "output: %s", out)
+		assert.Equal(t, len(rec.saves), 1)
+		keys[rec.saves[0].Key] = true
+	}
+	assert.Equal(t, len(keys), 2, "two homes shared a cache key: %v", keys)
 }
 
 func TestCLI_Install_CacheDisabled(t *testing.T) {
@@ -384,13 +398,6 @@ func TestCLI_Install_Errors(t *testing.T) {
 			assert.Assert(t, strings.Contains(out, tc.wantErr), "expected %q in output: %s", tc.wantErr, out)
 		})
 	}
-}
-
-// rootHash is the part of the cache key that identifies where the install
-// lives.
-func rootHash(root string) string {
-	sum := sha256.Sum256([]byte(root))
-	return hex.EncodeToString(sum[:4])
 }
 
 // realPath resolves symlinks, so a macOS /var answer compares equal to the
