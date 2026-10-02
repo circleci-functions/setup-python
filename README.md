@@ -62,6 +62,20 @@ already on `PATH` and installs nothing, linking `python` to `python3` if only
 `python3` resolves. With no Python on `PATH` at all, it installs the newest
 stable release. `--python-version` wins when both flags are set.
 
+### pyenv
+
+Where `python` is already on `PATH` through pyenv's shims, as on CircleCI's
+machine, macOS and `cimg/python` images, setup-python registers the install
+with pyenv instead of linking it: it is added to `$(pyenv root)/versions`
+under its version (`3.13.1`, or `3.13.1t` for a free-threaded build), made
+pyenv's global version, and the shims rehashed. pyenv then runs it, and
+rehashes after `pip install`, so what pip installs resolves by name too.
+
+A `.python-version` file or `$PYENV_VERSION` takes precedence over pyenv's
+global version. If either selects another Python where setup-python runs, it
+fails rather than leave later steps running a Python other than the one asked
+for.
+
 ### Where the list of builds comes from
 
 Each release of setup-python has the list of builds from

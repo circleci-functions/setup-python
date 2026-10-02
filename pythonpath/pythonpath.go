@@ -63,6 +63,9 @@ func Installed(root string) bool {
 type Result struct {
 	// Dir is the directory python resolves from.
 	Dir string
+	// Pyenv is the name the install was registered with pyenv as, when python
+	// was already on PATH through pyenv's shims, and "" otherwise.
+	Pyenv string
 	// PipDirs are further directories pip was linked into, taking each over,
 	// because another pip there came ahead of Dir on PATH.
 	PipDirs []string
@@ -70,11 +73,21 @@ type Result struct {
 
 // Link makes python, python3, python3.X, pip, pip3 and pip3.X resolvable by
 // name from a directory already on PATH.
+//
+// Where python is already on PATH through pyenv's shims, it registers the
+// install with pyenv and makes it pyenv's global version instead, since pyenv
+// rewrites its shims directory and would take any link there with it.
 func Link(opts Options) (Result, error) {
 	minor, err := minorVersion(opts.Version)
 	if err != nil {
 		return Result{}, err
 	}
+	if opts.BinDir == "" {
+		if root, ok := pyenvRoot(opts.Path); ok {
+			return linkWithPyenv(root, opts)
+		}
+	}
+
 	from := BinDir(opts.Root)
 	pips := []string{"pip", "pip3", "pip" + minor}
 	lopts := pathlink.Options{
@@ -180,6 +193,15 @@ func shadowed(path, dir, name string) string {
 	return dirs[i]
 }
 
+// RemoveUserInstalls removes any setting UserInstalls wrote into the install
+// at root.
+func RemoveUserInstalls(root string) error {
+	if err := os.Remove(pipConfig(root)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
 // UserInstalls makes pip install packages for the user rather than into the
 // install at root, when pip's user scripts directory is linkedDir, so that the
 // executables of the packages it installs resolve by name like python itself.
@@ -197,7 +219,7 @@ func UserInstalls(root, linkedDir string) (string, error) {
 	userScripts := strings.TrimSpace(string(out))
 	conf := pipConfig(root)
 	if !sameFile(userScripts, linkedDir) {
-		if err := os.Remove(conf); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := RemoveUserInstalls(root); err != nil {
 			return userScripts, err
 		}
 		return userScripts, fmt.Errorf("pip's user scripts directory %s is not %s", userScripts, linkedDir)
@@ -224,18 +246,26 @@ func pipConfig(root string) string {
 func verify(from, version string) func(string) error {
 	want := filepath.Join(from, "python")
 	return func(bin string) error {
-		out, err := pathlink.Command(bin, "--version").CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("failed to run: %w: %s", err, strings.TrimSpace(string(out)))
-		}
-		if got := strings.TrimSpace(string(out)); got != "Python "+version {
-			return fmt.Errorf("reports %q rather than Python %s", got, version)
+		if err := reportsVersion(bin, version); err != nil {
+			return err
 		}
 		if runtime.GOOS != "windows" && !sameFile(bin, want) {
 			return fmt.Errorf("is not %s", want)
 		}
 		return nil
 	}
+}
+
+// reportsVersion checks the python at bin runs and reports version.
+func reportsVersion(bin, version string) error {
+	out, err := pathlink.Command(bin, "--version").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to run: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if got := strings.TrimSpace(string(out)); got != "Python "+version {
+		return fmt.Errorf("reports %q rather than Python %s", got, version)
+	}
+	return nil
 }
 
 // writePipShims makes pip from a Windows install resolvable from dir, in cmd,

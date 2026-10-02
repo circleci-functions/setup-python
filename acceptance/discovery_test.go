@@ -4,6 +4,7 @@ package setuppython_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -69,6 +70,7 @@ func TestAcceptance_InstallsOntoTheRealPath(t *testing.T) {
 		"--install-dir", s.InstallDir,
 		"--cache-nonce", s.CacheKeyNonce,
 	}
+	previousPyenv := pyenvGlobal(t)
 	out := run(t, "", installArgs...)
 	t.Logf("setup-python: %s", out)
 	assert.Assert(t, !strings.Contains(out, "from cache"),
@@ -81,7 +83,12 @@ func TestAcceptance_InstallsOntoTheRealPath(t *testing.T) {
 	linked := reported(t, out, `linked into (.+)$`)
 	t.Logf("setup-python installed Python %s and linked it into %s", version, linked)
 
-	removeLinks(t, linked, version)
+	pyenvName := find(out, `registered Python \S+ with pyenv as (\S+),`)
+	if pyenvName != "" {
+		restorePyenv(t, filepath.Dir(linked), pyenvName, previousPyenv)
+	} else {
+		removeLinks(t, linked, version)
+	}
 
 	t.Run("ResolvesByNameInALaterStep", func(t *testing.T) {
 		for _, name := range []string{"python", "python3"} {
@@ -109,7 +116,7 @@ func TestAcceptance_InstallsOntoTheRealPath(t *testing.T) {
 			t.Logf("pip's user scripts directory is not on PATH on this executor; checking python -m instead")
 			got, err = sdktest.LaterStep(t, "python", "-m", "pyflakes", "--version")
 		} else {
-			assert.Assert(t, strings.Contains(out, "pip installs packages for the user"), "got: %s", out)
+			assert.Assert(t, strings.Contains(out, "pip installs packages for the user") || pyenvName != "", "got: %s", out)
 			got, err = sdktest.LaterStep(t, "pyflakes", "--version")
 		}
 		assert.NilError(t, err, "a later step could not run what pip install installed: %s", got)
@@ -149,11 +156,71 @@ func TestAcceptance_InstallsOntoTheRealPath(t *testing.T) {
 			"python goes on PATH by being linked there, so nothing should be exported: %s", content)
 	})
 
+	if pyenvName != "" {
+		t.Run("PyenvRunsItAfterARehash", func(t *testing.T) {
+			got, err := sdktest.LaterStep(t, pyenv(), "rehash")
+			assert.NilError(t, err, "pyenv rehash: %s", got)
+			got, err = sdktest.LaterStep(t, pyenv(), "which", "python")
+			assert.NilError(t, err, "pyenv which python: %s", got)
+			assert.Assert(t, strings.HasPrefix(realPath(strings.TrimSpace(got)), realPath(s.InstallDir)+string(os.PathSeparator)),
+				"pyenv runs %s, not the install under %s", got, s.InstallDir)
+			got, err = sdktest.LaterStep(t, "python", "--version")
+			assert.NilError(t, err, got)
+			assert.Equal(t, strings.TrimSpace(got), "Python "+version)
+		})
+		return
+	}
+
 	t.Run("NotIntoADirectoryOwnedByAnotherTool", func(t *testing.T) {
 		for _, part := range strings.Split(filepath.ToSlash(linked), "/") {
 			assert.Assert(t, part != "shims",
 				"a version manager rewrites its shims directory, taking the link with it: %s", linked)
 		}
+	})
+}
+
+// pyenv returns the pyenv on PATH or, when only its shims are, the one in the
+// root they belong to, or "" with no pyenv at all.
+func pyenv() string {
+	if bin, err := exec.LookPath("pyenv"); err == nil {
+		return bin
+	}
+	python, err := exec.LookPath("python3")
+	if err != nil || filepath.Base(filepath.Dir(python)) != "shims" {
+		return ""
+	}
+	root := filepath.Dir(filepath.Dir(python))
+	for _, bin := range []string{filepath.Join(root, "bin", "pyenv"), filepath.Join(root, "libexec", "pyenv")} {
+		if _, err := os.Stat(bin); err == nil {
+			return bin
+		}
+	}
+	return ""
+}
+
+// pyenvGlobal returns pyenv's global version, or "" with no pyenv.
+func pyenvGlobal(t *testing.T) string {
+	t.Helper()
+	bin := pyenv()
+	if bin == "" {
+		return ""
+	}
+	got, err := sdktest.LaterStep(t, bin, "global")
+	assert.NilError(t, err, "pyenv global: %s", got)
+	return strings.Join(strings.Fields(got), " ")
+}
+
+// restorePyenv unregisters the install from the pyenv at root at the end of
+// the test, and puts pyenv's global version back.
+func restorePyenv(t *testing.T, root, name, previous string) {
+	t.Helper()
+	t.Cleanup(func() {
+		_ = os.Remove(filepath.Join(root, "versions", name))
+		bin := pyenv()
+		if previous != "" {
+			_, _ = sdktest.LaterStep(t, bin, append([]string{"global"}, strings.Fields(previous)...)...)
+		}
+		_, _ = sdktest.LaterStep(t, bin, "rehash")
 	})
 }
 
@@ -180,12 +247,29 @@ func removeLinks(t *testing.T, dir, version string) {
 // reported returns the first submatch of pattern in setup-python's output.
 func reported(t *testing.T, out, pattern string) string {
 	t.Helper()
+	if got := find(out, pattern); got != "" {
+		return got
+	}
+	t.Fatalf("setup-python did not report %q:\n%s", pattern, out)
+	return ""
+}
+
+// find returns the first submatch of pattern in out, or "".
+func find(out, pattern string) string {
 	re := regexp.MustCompile(pattern)
 	for line := range strings.SplitSeq(out, "\n") {
 		if m := re.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
 			return m[1]
 		}
 	}
-	t.Fatalf("setup-python did not report %q:\n%s", pattern, out)
 	return ""
+}
+
+// realPath resolves symlinks, so a macOS /var answer compares equal to the
+// /private/var it points at.
+func realPath(p string) string {
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	return p
 }
