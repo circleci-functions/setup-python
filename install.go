@@ -56,19 +56,7 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 	if err != nil {
 		return err
 	}
-	dir := linked.Dir
-	fmt.Fprintf(os.Stderr, "setup-python: Python %s installed at %s, linked into %s\n", version, root, dir)
-	if linked.Pyenv != "" {
-		fmt.Fprintf(os.Stderr, "setup-python: registered Python %s with pyenv as %s, and made it pyenv's global version\n", version, linked.Pyenv)
-	}
-	for _, d := range linked.PipDirs {
-		fmt.Fprintf(os.Stderr, "setup-python: also linked pip into %s, where another pip came first on PATH\n", d)
-	}
-	if c.BinDir == "" {
-		if other := pythonpath.Shadowed(dir, "pip"); other != "" && !slices.Contains(linked.PipDirs, other) {
-			fmt.Fprintf(os.Stderr, "setup-python: warning: pip resolves from %s, ahead of %s; run python -m pip for the pip of the Python installed here\n", other, dir)
-		}
-	}
+	c.reportLinked(version, root, linked)
 
 	if c.PipVersion != "" {
 		if err := installPip(ctx, root, c.PipVersion); err != nil {
@@ -82,8 +70,25 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 		fmt.Fprintf(os.Stderr, "setup-python: pyenv rehashes after pip install, so the executables of what pip installs resolve by name\n")
 		return nil
 	}
-	reportUserInstalls(root, dir)
+	reportUserInstalls(root, linked.Dir)
 	return nil
+}
+
+// reportLinked says where Link made the install at root resolvable from.
+func (c *installCmd) reportLinked(version, root string, linked pythonpath.Result) {
+	dir := linked.Dir
+	fmt.Fprintf(os.Stderr, "setup-python: Python %s installed at %s, linked into %s\n", version, root, dir)
+	if linked.Pyenv != "" {
+		fmt.Fprintf(os.Stderr, "setup-python: registered Python %s with pyenv as %s, and made it pyenv's global version\n", version, linked.Pyenv)
+	}
+	for _, d := range linked.PipDirs {
+		fmt.Fprintf(os.Stderr, "setup-python: also linked pip into %s, where another pip came first on PATH\n", d)
+	}
+	if c.BinDir == "" {
+		if other := pythonpath.Shadowed(dir, "pip"); other != "" && !slices.Contains(linked.PipDirs, other) {
+			fmt.Fprintf(os.Stderr, "setup-python: warning: pip resolves from %s, ahead of %s; run python -m pip for the pip of the Python installed here\n", other, dir)
+		}
+	}
 }
 
 // spec returns the version spec to install, or false when nothing asks for a
