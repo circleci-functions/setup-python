@@ -15,7 +15,9 @@ import (
 
 // New writes a pyenv root whose shims run the version named by $PYENV_VERSION
 // or the root's version file, as pyenv's do, holding a version of its own
-// named preinstalled.
+// named preinstalled. That version's python answers --version and appends any
+// -m invocation to $STUB_LOG as "pyenv python ...", so a test can tell it from
+// setup-python's install.
 func New(t *testing.T, preinstalled string) string {
 	t.Helper()
 	skip.If(t, runtime.GOOS == "windows", "the fake pyenv is shell scripts")
@@ -34,10 +36,14 @@ func New(t *testing.T, preinstalled string) string {
 			"version) echo \"$v (set by " + root + "/version)\" ;;\n" +
 			"esac\n",
 		"shims/python": "#!/bin/sh\n" + selected + "\nexec \"" + root + "/versions/$v/bin/python\" \"$@\"\n",
-		filepath.Join("versions", preinstalled, "bin", "python"): "#!/bin/sh\necho 'Python " + preinstalled + "'\n",
+		filepath.Join("versions", preinstalled, "bin", "python"): "#!/bin/sh\ncase \"$1\" in\n" +
+			"--version) echo 'Python " + preinstalled + "' ;;\n" +
+			"-m) [ -n \"$STUB_LOG\" ] && printf 'pyenv python %s\\n' \"$*\" >> \"$STUB_LOG\" ;;\n" +
+			"esac\n",
 	}
 	for name, content := range scripts {
 		assert.NilError(t, os.WriteFile(filepath.Join(root, name), []byte(content), 0700)) //nolint:gosec // must be executable
 	}
+	assert.NilError(t, os.Symlink("python", filepath.Join(root, "versions", preinstalled, "bin", "python3")))
 	return root
 }
