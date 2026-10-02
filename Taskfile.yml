@@ -1,5 +1,8 @@
 version: "3"
 
+vars:
+  SMOKE_PLATFORMS: linux/amd64 linux/arm64 darwin/arm64 windows/amd64
+
 tasks:
   default:
     cmds:
@@ -68,7 +71,7 @@ tasks:
     cmds:
       - |
         set -eu
-        for platform in linux/amd64 linux/arm64 darwin/arm64 windows/amd64; do
+        for platform in {{.SMOKE_PLATFORMS}}; do
           os="${platform%/*}"; arch="${platform#*/}"
           out="dist/acceptance/$os/$arch/acceptance"
           if [ "$os" = windows ]; then out="$out.exe"; fi
@@ -83,7 +86,7 @@ tasks:
     cmds:
       - |
         set -eu
-        for platform in linux/amd64 linux/arm64 darwin/arm64 windows/amd64; do
+        for platform in {{.SMOKE_PLATFORMS}}; do
           os="${platform%/*}"; arch="${platform#*/}"
           ext=""
           if [ "$os" = windows ]; then ext=".exe"; fi
