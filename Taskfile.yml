@@ -36,6 +36,22 @@ tasks:
     cmds:
       - go mod tidy
 
+  lint-tasks:
+    desc: Check every task the CI config invokes exists
+    cmds:
+      - |
+        set -eu
+        defined=" $(grep -oE '^  [a-z][a-z-]*:' Taskfile.yml | tr -d ' :' | tr '\n' ' ')"
+        missing=""
+        for t in $(grep -v '^[[:space:]]*#' .circleci/config.yml \
+                   | grep -oE 'task [a-z][a-z-]*' | awk '{print $2}' | sort -u); do
+          case "$defined" in *" $t "*) ;; *) missing="$missing $t" ;; esac
+        done
+        if [ -n "$missing" ]; then
+          echo "CI config invokes tasks that do not exist:$missing" >&2
+          exit 1
+        fi
+
   lint-mod:
     desc: Check go.mod / go.sum are tidy
     deps: [tidy]
@@ -113,6 +129,7 @@ tasks:
     desc: Run everything CI runs (lint + test + dry-run)
     cmds:
       - task: lint
+      - task: lint-tasks
       - task: test
       - task: dry-run
 

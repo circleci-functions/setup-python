@@ -81,6 +81,7 @@ jobs:
             - setup-python-go-{{ checksum "go.sum" }}-
             - setup-python-go-
       - run: task lint
+      - run: task lint-tasks
       - run: task test
       - store_test_results:
           path: test-results
