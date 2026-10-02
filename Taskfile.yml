@@ -26,6 +26,11 @@ tasks:
     cmds:
       - go test -tags acceptance -v -timeout 20m ./acceptance/...
 
+  update-downloads:
+    desc: Refresh the built-in list of Python builds from uv's download metadata
+    cmds:
+      - go run ./internal/cmd/update-downloads -o pythondist/downloads.json
+
   tidy:
     desc: Tidy go.mod / go.sum
     cmds:
