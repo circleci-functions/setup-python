@@ -19,9 +19,9 @@ import (
 	"github.com/circleci-functions/toolkit/testing/runner"
 )
 
-// acceptanceVersion returns the Python version spec to install:
-// SETUP_PYTHON_ACCEPTANCE_VERSION is set in CI from the pipeline's
-// python-version parameter, 3.13 locally.
+// acceptanceVersion returns the Python version spec to install. CI sets
+// SETUP_PYTHON_ACCEPTANCE_VERSION from the pipeline's python-version
+// parameter, so every job in a pipeline installs the same release.
 func acceptanceVersion() string {
 	if v := os.Getenv("SETUP_PYTHON_ACCEPTANCE_VERSION"); v != "" {
 		return v

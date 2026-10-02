@@ -17,7 +17,8 @@ import (
 
 // Options configures Link.
 type Options struct {
-	// Root is the root of the Python install.
+	// Root is the unpacked install to make resolvable, as pythondist.Install
+	// left it.
 	Root string
 	// Version is what python --version must report, e.g. "3.13.1".
 	Version string
@@ -122,7 +123,8 @@ func Link(opts Options) (Result, error) {
 	return result, nil
 }
 
-// linkPips makes pips resolvable from dir.
+// linkPips links the install's pip executables into dir or, on Windows,
+// whose builds ship none, writes shims there that run python -m pip.
 func linkPips(root, dir string, pips []string) error {
 	if runtime.GOOS == "windows" {
 		for _, pip := range pips {
@@ -153,7 +155,7 @@ func takeOverPips(root, dir, path string, pips []string) []string {
 			continue
 		}
 		if runtime.GOOS == "windows" {
-			if err := replaceExe(other, pip); err != nil {
+			if err := removeExe(other, pip); err != nil {
 				continue
 			}
 		}
@@ -167,9 +169,11 @@ func takeOverPips(root, dir, path string, pips []string) []string {
 	return taken
 }
 
-// replaceExe removes dir's name.exe, which PATHEXT would otherwise pick ahead
-// of the shims written beside it.
-func replaceExe(dir, name string) error {
+// removeExe gets dir's name.exe out of the way of the shims written beside
+// it, which PATHEXT would otherwise pick it ahead of. Windows refuses to
+// delete an executable that is running but lets it be renamed, so it renames
+// first and the delete is best effort.
+func removeExe(dir, name string) error {
 	exe := filepath.Join(dir, name+".exe")
 	if _, err := os.Stat(exe); err != nil {
 		return nil
