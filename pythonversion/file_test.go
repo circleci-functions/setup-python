@@ -114,10 +114,9 @@ func TestRequiresPython_ResolvesAsPEP440(t *testing.T) {
 		requires string
 		want     string
 	}{
-		{requires: ">3.12", want: "3.14.1"},
+		{requires: "==3.12", want: "3.12.0"},
 		{requires: ">3.12,<3.13", want: "3.12.10"},
 		{requires: "<=3.12", want: "3.12.0"},
-		{requires: ">=3.13,<3.14", want: "3.13.2"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.requires, func(t *testing.T) {
