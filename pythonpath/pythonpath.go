@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/circleci-functions/toolkit/pathlink"
@@ -58,16 +59,24 @@ func Installed(root string) bool {
 	return err == nil
 }
 
+// Result describes where Link made python and pip resolvable from.
+type Result struct {
+	// Dir is the directory python resolves from.
+	Dir string
+	// PipDirs are further directories pip was linked into, taking each over,
+	// because another pip there came ahead of Dir on PATH.
+	PipDirs []string
+}
+
 // Link makes python, python3, python3.X, pip, pip3 and pip3.X resolvable by
-// name from a directory already on PATH, and returns that directory.
-func Link(opts Options) (string, error) {
+// name from a directory already on PATH.
+func Link(opts Options) (Result, error) {
 	minor, err := minorVersion(opts.Version)
 	if err != nil {
-		return "", err
+		return Result{}, err
 	}
 	from := BinDir(opts.Root)
 	pips := []string{"pip", "pip3", "pip" + minor}
-
 	lopts := pathlink.Options{
 		FromDir:   from,
 		Preferred: pathlink.UserBinDirs(),
@@ -79,29 +88,91 @@ func Link(opts Options) (string, error) {
 		lopts.Names = []string{"python"}
 		lopts.Aliases = map[string]string{"python3": "python", "python" + minor: "python"}
 	} else {
-		lopts.Names = present(from, append([]string{"python", "python3", "python" + minor}, pips...))
+		lopts.Names = present(from, []string{"python", "python3", "python" + minor})
 	}
-
 	res, err := pathlink.Ensure(lopts)
 	if err != nil {
-		return "", err
+		return Result{}, err
 	}
+
+	result := Result{Dir: res.Dir}
+	if err := linkPips(opts.Root, res.Dir, pips); err != nil {
+		return result, err
+	}
+	if opts.BinDir == "" {
+		result.PipDirs = takeOverPips(opts.Root, res.Dir, opts.Path, pips)
+	}
+	return result, nil
+}
+
+// linkPips makes pips resolvable from dir.
+func linkPips(root, dir string, pips []string) error {
 	if runtime.GOOS == "windows" {
 		for _, pip := range pips {
-			if err := writePipShims(res.Dir, Executable(opts.Root), pip); err != nil {
-				return "", err
+			if err := writePipShims(dir, Executable(root), pip); err != nil {
+				return err
 			}
 		}
+		return nil
 	}
-	return res.Dir, nil
+	names := present(BinDir(root), pips)
+	if len(names) == 0 {
+		return nil
+	}
+	_, err := pathlink.Ensure(pathlink.Options{Names: names, FromDir: BinDir(root), Dir: dir})
+	return err
+}
+
+// takeOverPips links each of pips into the directory it resolves from instead
+// of dir, where another pip comes ahead of the one in dir, and returns those
+// directories. On Windows that is the Scripts directory of a preinstalled
+// Python, which comes ahead of the Python itself on PATH. A directory it cannot
+// write to is left alone; Shadowed reports what still resolves from there.
+func takeOverPips(root, dir, path string, pips []string) []string {
+	var taken []string
+	for _, pip := range pips {
+		other := shadowed(path, dir, pip)
+		if other == "" {
+			continue
+		}
+		if runtime.GOOS == "windows" {
+			if err := replaceExe(other, pip); err != nil {
+				continue
+			}
+		}
+		if err := linkPips(root, other, []string{pip}); err != nil {
+			continue
+		}
+		if !slices.Contains(taken, other) {
+			taken = append(taken, other)
+		}
+	}
+	return taken
+}
+
+// replaceExe removes dir's name.exe, which PATHEXT would otherwise pick ahead
+// of the shims written beside it.
+func replaceExe(dir, name string) error {
+	exe := filepath.Join(dir, name+".exe")
+	if _, err := os.Stat(exe); err != nil {
+		return nil
+	}
+	aside := exe + ".setup-python-old"
+	if err := os.Rename(exe, aside); err != nil {
+		return err
+	}
+	_ = os.Remove(aside)
+	return nil
 }
 
 // Shadowed returns the directory name resolves from on PATH when that is not
-// dir, or "" when it is dir or resolves nowhere. Link guarantees python
-// resolves from the directory it links into, but not the pips, which can sit
-// in a directory of their own ahead of it.
+// dir, or "" when it is dir or resolves nowhere.
 func Shadowed(dir, name string) string {
-	dirs := pathlink.SearchDirs("")
+	return shadowed("", dir, name)
+}
+
+func shadowed(path, dir, name string) string {
+	dirs := pathlink.SearchDirs(path)
 	i := pathlink.IndexOf(dirs, name)
 	if i < 0 || sameFile(dirs[i], dir) {
 		return ""

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/circleci-functions/toolkit/sdk"
@@ -51,13 +52,17 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 	if err != nil {
 		return err
 	}
-	dir, err := pythonpath.Link(pythonpath.Options{Root: root, Version: version, BinDir: c.BinDir})
+	linked, err := pythonpath.Link(pythonpath.Options{Root: root, Version: version, BinDir: c.BinDir})
 	if err != nil {
 		return err
 	}
+	dir := linked.Dir
 	fmt.Fprintf(os.Stderr, "setup-python: Python %s installed at %s, linked into %s\n", version, root, dir)
+	for _, d := range linked.PipDirs {
+		fmt.Fprintf(os.Stderr, "setup-python: also linked pip into %s, where another pip came first on PATH\n", d)
+	}
 	if c.BinDir == "" {
-		if other := pythonpath.Shadowed(dir, "pip"); other != "" {
+		if other := pythonpath.Shadowed(dir, "pip"); other != "" && !slices.Contains(linked.PipDirs, other) {
 			fmt.Fprintf(os.Stderr, "setup-python: warning: pip resolves from %s, ahead of %s; run python -m pip for the pip of the Python installed here\n", other, dir)
 		}
 	}

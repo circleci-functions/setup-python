@@ -33,9 +33,9 @@ func TestLink_DiscoversDirOnPath(t *testing.T) {
 	root := fakeInstall(t, "")
 	onPath := t.TempDir()
 
-	dir, err := Link(Options{Root: root, Version: "3.13.1", Path: onPath})
+	res, err := Link(Options{Root: root, Version: "3.13.1", Path: onPath})
 	assert.NilError(t, err)
-	assert.Equal(t, dir, onPath)
+	assert.DeepEqual(t, res, Result{Dir: onPath})
 	for _, name := range []string{"python", "python3", "python3.13", "pip", "pip3", "pip3.13"} {
 		target, err := os.Readlink(filepath.Join(onPath, name))
 		assert.NilError(t, err, name)
@@ -47,11 +47,32 @@ func TestLink_BinDir(t *testing.T) {
 	root := fakeInstall(t, "")
 	binDir := t.TempDir()
 
-	dir, err := Link(Options{Root: root, Version: "3.13.1", BinDir: binDir})
+	res, err := Link(Options{Root: root, Version: "3.13.1", BinDir: binDir})
 	assert.NilError(t, err)
-	assert.Equal(t, dir, binDir)
+	assert.Equal(t, res.Dir, binDir)
 	_, err = os.Stat(filepath.Join(binDir, "pip"))
 	assert.NilError(t, err)
+}
+
+// TestLink_TakesOverAPipAhead covers a preinstalled Python whose pip sits in a
+// directory of its own ahead of the one python is linked into, as the Scripts
+// directory of a Windows install does.
+func TestLink_TakesOverAPipAhead(t *testing.T) {
+	root := fakeInstall(t, "")
+	scripts, pyDir := t.TempDir(), t.TempDir()
+	assert.NilError(t, os.WriteFile(filepath.Join(scripts, "pip"), []byte("#!/bin/sh\n"), 0700))                        //nolint:gosec // must be executable
+	assert.NilError(t, os.WriteFile(filepath.Join(pyDir, "python"), []byte("#!/bin/sh\necho 'Python 3.12.0'\n"), 0700)) //nolint:gosec // must be executable
+	path := scripts + string(os.PathListSeparator) + pyDir
+
+	res, err := Link(Options{Root: root, Version: "3.13.1", Path: path})
+	assert.NilError(t, err)
+	assert.Equal(t, res.Dir, pyDir)
+	assert.DeepEqual(t, res.PipDirs, []string{scripts})
+	target, err := os.Readlink(filepath.Join(scripts, "pip"))
+	assert.NilError(t, err)
+	assert.Equal(t, target, filepath.Join(root, "bin", "pip"))
+	assert.Equal(t, shadowed(path, pyDir, "pip"), scripts)
+	assert.Equal(t, shadowed(path, pyDir, "pip3"), "")
 }
 
 func TestLink_InvalidVersion(t *testing.T) {

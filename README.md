@@ -213,7 +213,9 @@ for the machine it runs on.
   on amd64 and arm64.
 - **Free-threaded builds** are available from 3.13.12 and 3.14.3.
 - **Windows** gets `python`, `python3`, `pip` and `pip3` shims that work from
-  cmd, PowerShell and Git Bash.
+  cmd, PowerShell and Git Bash. Where a preinstalled Python is on `PATH`, they
+  take its place, and its `Scripts` directory's `pip` too, which comes ahead of
+  it.
 - **PyPy and GraalPy** are not supported.
 
 Cache locations for `install-packages` are resolved per platform following
