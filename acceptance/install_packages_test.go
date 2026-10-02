@@ -42,13 +42,15 @@ func TestAcceptance_InstallPackages_CacheRoundTrip(t *testing.T) {
 		tool string
 		// extraArgs, appended via --args, keep each real install offline and
 		// confined to a scratch --target rather than any shared site-packages.
+		// --no-user because a Python setup-python installed may be configured
+		// to install for the user, which pip refuses to combine with --target.
 		extraArgs func(target string) string
 	}{
 		{
 			name:       "pip",
 			pkgManager: "pip",
 			fixture:    "pip",
-			extraArgs:  func(target string) string { return "--target " + target },
+			extraArgs:  func(target string) string { return "--no-user --target " + target },
 		},
 		{
 			name:       "pip-dist",
@@ -56,7 +58,7 @@ func TestAcceptance_InstallPackages_CacheRoundTrip(t *testing.T) {
 			fixture:    "pip-dist",
 			// --no-build-isolation: without it pip fetches setuptools into an
 			// isolated build env over the network, though it is present locally.
-			extraArgs: func(target string) string { return "--no-build-isolation --target " + target },
+			extraArgs: func(target string) string { return "--no-user --no-build-isolation --target " + target },
 		},
 		{name: "pipenv", pkgManager: "pipenv", fixture: "pipenv", tool: "pipenv"},
 		{name: "poetry", pkgManager: "poetry", fixture: "poetry", tool: "poetry"},
