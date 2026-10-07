@@ -26,7 +26,7 @@ var liveDownloadsURL = pythondist.DefaultURL
 // installCmd installs a relocatable CPython build for the running platform
 // and makes python and pip resolvable by name for the rest of the job.
 type installCmd struct {
-	PythonVersion     string `help:"Python version to install: an exact or partial version (3.13, 3.13.1), a range (>=3.10 <3.14, ~=3.12), or x.y-dev to include prereleases. A t suffix (3.13t) installs a free-threaded build. Defaults to .python-version, then the Python already on PATH, then the newest stable release."`
+	PythonVersion     string `help:"Python version to install: an exact or partial version (3.13, 3.13.1), a range (>=3.10 <3.14, ~=3.12), or x.y-dev to include prereleases. A t suffix (3.13t) installs a free-threaded build. Defaults to .python-version, then the Python already on PATH, then the newest stable release." example:"3.13"`
 	PythonVersionFile string `help:"File to read the Python version from: .python-version, .tool-versions, pyproject.toml or Pipfile." type:"path"`
 	AllowPrereleases  bool   `help:"Let a major.minor --python-version match prereleases when that version has no stable release yet."`
 	Freethreaded      bool   `help:"Install a free-threaded build."`
