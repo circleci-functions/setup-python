@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/alecthomas/kong v1.16.0
-	github.com/circleci-functions/toolkit v0.1.8
+	github.com/circleci-functions/toolkit v0.1.9-0.20261007131229-ca3a78293bbd
 	gotest.tools/v3 v3.5.2
 )
 

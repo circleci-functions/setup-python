@@ -27,7 +27,7 @@ func run(ctx context.Context, client *sdk.Client) error {
 	var flags cli
 	kCtx := kong.Parse(&flags,
 		kong.Name("setup-python"),
-		kong.Description("Install Python, and optionally a project's dependencies, caching what each downloads.\n\nExamples:\n  circleci run setup-python@<version> -- --python-version 3.13\n  circleci run setup-python@<version> -- install-packages --app-dir ./service"),
+		kong.Description("Install Python, and optionally a project's dependencies, caching what each downloads."),
 		kong.UsageOnError(),
 		functionyaml.Embed(),
 	)
