@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/alecthomas/kong v1.16.0
-	github.com/circleci-functions/toolkit v0.1.9-0.20261007152818-72ffa3f7a023
+	github.com/circleci-functions/toolkit v0.2.0
 	gotest.tools/v3 v3.5.2
 )
 
@@ -259,6 +259,7 @@ require (
 
 tool (
 	github.com/circleci-functions/toolkit/cmd/release
+	github.com/circleci-functions/toolkit/cmd/release-pr
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	gotest.tools/gotestsum
 )
