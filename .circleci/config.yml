@@ -147,87 +147,48 @@ jobs:
       - store_test_results:
           path: test-results
 
-  publish:
-    executor: go
-    steps:
-      - checkout
-      - toolkit/private-mod-init
-      - restore_cache:
-          keys:
-            - setup-python-go-{{ checksum "go.sum" }}-
-            - setup-python-go-
-      - toolkit/setup-aws-oidc:
-          role_arn: $FUNCTIONS_PUBLISHER_ROLE_ARN
-      - run:
-          name: Extract version from tag
-          command: |
-            VERSION="${CIRCLE_TAG}-$(git rev-parse --short HEAD)"
-            echo "export VERSION=$VERSION" >> "$BASH_ENV"
-      - run:
-          name: Build and publish
-          command: task publish VERSION="$VERSION"
-
 workflows:
   test-publish:
     jobs:
       - test:
           context: [github-readonly]
-          filters:
-            tags:
-              only: /.*/
       - acceptance:
           context: [github-readonly]
-          filters:
-            tags:
-              only: /.*/
       - build:
           context: [github-readonly]
-          filters:
-            tags:
-              only: /.*/
       - smoke:
           name: smoke-linux-amd64
           e: base
           platform: linux/amd64
           requires: [build]
-          filters:
-            tags:
-              only: /.*/
       - smoke:
           name: smoke-linux-arm64
           e: arm64
           platform: linux/arm64
           requires: [build]
-          filters:
-            tags:
-              only: /.*/
       - smoke:
           name: smoke-alpine
           e: alpine
           platform: linux/amd64
           requires: [build]
-          filters:
-            tags:
-              only: /.*/
       - smoke:
           name: smoke-macos
           e: macos
           platform: darwin/arm64
           requires: [build]
-          filters:
-            tags:
-              only: /.*/
       - smoke:
           name: smoke-windows
           e: windows
           platform: windows/amd64
           ext: ".exe"
           requires: [build]
-          filters:
-            tags:
-              only: /.*/
-      - publish:
-          requires:
+      - toolkit/release-pr:
+          name: release-pr
+          executor: go
+          cache-prefix: setup-python-go
+          # One at a time, so two pushes can't race to rewrite release/next.
+          serial-group: << pipeline.project.slug >>/release-pr
+          requires: &release-requires
             - test
             - acceptance
             - smoke-linux-amd64
@@ -235,9 +196,17 @@ workflows:
             - smoke-alpine
             - smoke-macos
             - smoke-windows
-          context: [functions-publisher, github-readonly]
+          context: [github-release]
           filters:
-            tags:
-              only: /^v\d+\.\d+\.\d+$/
             branches:
-              ignore: /.*/
+              only: main
+      - toolkit/publish:
+          name: publish
+          executor: go
+          cache-prefix: setup-python-go
+          serial-group: << pipeline.project.slug >>/publish
+          requires: *release-requires
+          context: [functions-publisher, github-release]
+          filters:
+            branches:
+              only: main
