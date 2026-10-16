@@ -5,15 +5,34 @@ An optional `install-packages` command then installs your dependencies with
 the right package manager, caching what it downloads.
 
 ```yaml
-steps:
-  - checkout
-  - run:
-      name: Install Python
-      command: circleci run setup-python@<version> -- --python-version 3.13
-  - run:
-      name: Install dependencies
-      command: circleci run setup-python@<version> -- install-packages --app-dir ./service
-  - run: pytest
+functions:
+  setup-python: github.com/circleci-functions/setup-python@<version>
+
+jobs:
+  test:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup-python:
+          with:
+            python-version: "3.13"
+      - setup-python/install-packages:
+          with:
+            app-dir: ./service
+      - run: pytest
+```
+
+`- setup-python:` runs the default command, which installs Python, and
+`- setup-python/install-packages:` runs `install-packages`. Each flag in the
+tables below is a `with:` key, written without its leading `--`.
+
+Where the `functions:` block isn't enabled, such as on CircleCI Server, run the
+same commands with `circleci run` and the function's full name:
+
+```yaml
+- run: circleci run github.com/circleci-functions/setup-python@<version> -- --python-version 3.13
+- run: circleci run github.com/circleci-functions/setup-python@<version> -- install-packages --app-dir ./service
 ```
 
 ## Installing Python
@@ -53,7 +72,9 @@ Or read the version from a file with `--python-version-file`:
 | `Pipfile` | `requires.python_full_version`, then `requires.python_version` |
 
 ```yaml
-- run: circleci run setup-python@<version> -- --python-version-file pyproject.toml
+- setup-python:
+    with:
+      python-version-file: pyproject.toml
 ```
 
 With neither flag, setup-python reads `.python-version` from the step's
@@ -126,7 +147,9 @@ restores its virtualenv and pypi caches, runs the install, and saves the caches
 back.
 
 ```yaml
-- run: circleci run setup-python@<version> -- install-packages --app-dir ./service
+- setup-python/install-packages:
+    with:
+      app-dir: ./service
 ```
 
 It uses the `python` and `pip` on `PATH`; if the executor only has `python3`
@@ -134,9 +157,11 @@ and `pip3`, it links `python` and `pip` to them. Package managers other than
 pip need to be on `PATH` already:
 
 ```yaml
-- run: circleci run setup-python@<version> -- --python-version 3.13
+- setup-python:
+    with:
+      python-version: "3.13"
 - run: pip install poetry
-- run: circleci run setup-python@<version> -- install-packages
+- setup-python/install-packages
 ```
 
 ### Choosing a package manager
@@ -156,7 +181,9 @@ They are matched in that order (first match wins). Set `--package-manager` to pi
 one explicitly instead:
 
 ```yaml
-- run: circleci run setup-python@<version> -- install-packages --package-manager poetry
+- setup-python/install-packages:
+    with:
+      package-manager: poetry
 ```
 
 Each manager runs its standard install command; `--args` is appended verbatim to
