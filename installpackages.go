@@ -40,9 +40,7 @@ func (c *installPackagesCmd) Run(ctx context.Context, client *sdk.Client) error 
 	}
 
 	binaries := python.ResolveBinaries()
-	if err := python.EnsureAliased(binaries); err != nil {
-		return fmt.Errorf("link python/pip: %w", err)
-	}
+	linkAliases(binaries)
 
 	pm, err := c.resolvePackageManager()
 	if err != nil {
@@ -69,6 +67,15 @@ func (c *installPackagesCmd) Run(ctx context.Context, client *sdk.Client) error 
 	}
 
 	return nil
+}
+
+// linkAliases links python and pip to python3 and pip3 when only those
+// resolve, so later steps can run them by name. A failure is only a warning:
+// setup-python itself runs python3 and pip3 directly.
+func linkAliases(binaries python.Binaries) {
+	if err := python.EnsureAliased(binaries); err != nil {
+		fmt.Fprintf(os.Stderr, "setup-python: warning: link python to python3: %v\n", err)
+	}
 }
 
 // resolveAppDir replaces c.AppDir with its absolute form, erroring if it

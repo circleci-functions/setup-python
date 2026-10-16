@@ -21,7 +21,9 @@ steps:
 With no command, setup-python downloads a CPython build for the machine it
 runs on, checks it against its SHA-256, and links `python`, `python3`,
 `python3.X`, `pip`, `pip3` and `pip3.X` into a directory already on `PATH`.
-Later steps run them by name, in any shell, without sourcing anything.
+Later steps run them by name, in any shell, without sourcing anything. If they
+can't be linked, the step fails, since later steps could not run the Python it
+installed.
 
 The builds are [python-build-standalone](https://github.com/astral-sh/python-build-standalone)'s,
 the relocatable CPython builds uv installs. They depend on nothing but the C
@@ -59,8 +61,9 @@ Or read the version from a file with `--python-version-file`:
 With neither flag, setup-python reads `.python-version` from the step's
 working directory. With no `.python-version` either, it uses the Python 3
 already on `PATH` and installs nothing, linking `python` to `python3` if only
-`python3` resolves. With no Python on `PATH` at all, it installs the newest
-stable release. `--python-version` wins when both flags are set.
+`python3` resolves, and only warning if that link fails. With no Python on
+`PATH` at all, it installs the newest stable release. `--python-version` wins
+when both flags are set.
 
 ### pyenv
 
@@ -130,8 +133,9 @@ back.
 ```
 
 It uses the `python` and `pip` on `PATH`; if the executor only has `python3`
-and `pip3`, it links `python` and `pip` to them. Package managers other than
-pip need to be on `PATH` already:
+and `pip3`, it links `python` and `pip` to them. If that link fails, it warns
+and installs with `python3` and `pip3` anyway. Package managers other than pip
+need to be on `PATH` already:
 
 ```yaml
 - run: circleci run setup-python@<version> -- --python-version 3.13

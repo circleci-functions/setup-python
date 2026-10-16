@@ -3,10 +3,12 @@ package clitest_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
+	"gotest.tools/v3/skip"
 )
 
 // TestCLI_InstallPackages_CacheRoundTrip proves the restore -> install -> save
@@ -141,4 +143,28 @@ func TestCLI_InstallPackages_InstallArgs(t *testing.T) {
 			assert.Equal(t, calls[0], tc.wantCall)
 		})
 	}
+}
+
+// TestCLI_InstallPackages_AliasLinkFailureWarns covers an executor with only
+// python3 and pip3, in a directory install-packages can't link python and pip
+// into: it warns and installs with pip3 anyway.
+func TestCLI_InstallPackages_AliasLinkFailureWarns(t *testing.T) {
+	skip.If(t, runtime.GOOS == "windows", "the stubs are shell scripts")
+	skip.If(t, os.Getuid() == 0, "root can write to a read-only directory")
+
+	_, run := sandbox(t)
+	env, logPath := stubTools(t, "python3", "pip3")
+	pathDir := env["PATH"]
+	//nolint:gosec // test stub; 0700 so it is executable
+	assert.NilError(t, os.WriteFile(filepath.Join(pathDir, "python3"), []byte("#!/bin/sh\necho 'Python 3.12.1'\n"), 0700))
+	//nolint:gosec // a directory needs its execute bit to be searched on PATH
+	assert.NilError(t, os.Chmod(pathDir, 0500))
+	//nolint:gosec // writable again, so the temp dir can be removed
+	t.Cleanup(func() { _ = os.Chmod(pathDir, 0700) })
+
+	appDir := copyFixture(t, "pip")
+	out, err := run(t, env, "install-packages", "--app-dir", appDir, "--cache=false")
+	assert.NilError(t, err, "output: %s", out)
+	assert.Assert(t, strings.Contains(out, "warning: link python to python3"), "output: %s", out)
+	assert.DeepEqual(t, stubCalls(t, logPath), []string{"pip3 install -r requirements.txt"})
 }
