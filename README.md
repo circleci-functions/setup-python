@@ -99,6 +99,23 @@ for, as on an image that ships it, pyenv keeps running that one, and
 setup-python runs, it fails rather than leave later steps running a Python
 other than the one asked for.
 
+### Where it links
+
+setup-python links into the first of `~/.local/bin`, `~/bin` and
+`/usr/local/bin` that is on `PATH` ahead of any Python already there and that
+it can write to. Failing that, it links into the directory of the Python
+already on `PATH`, replacing it there, or, with no Python on `PATH`, into the
+first directory on `PATH` it can write to, then `/usr/local/bin`. Where
+another `pip` comes ahead on `PATH` from a directory it can write to,
+setup-python links its own `pip` there too.
+
+Where that directory needs root, as for a preinstalled `/usr/bin/python3`,
+setup-python links with `sudo -n`, so without passwordless sudo the step
+fails. Put `~/.local/bin` on `PATH` ahead of that directory, or name a
+directory with `--bin-dir`: setup-python links into exactly that one, without
+searching `PATH` or registering with pyenv, so it has to be on `PATH` for
+later steps.
+
 ### Where the list of builds comes from
 
 Each release of setup-python has the list of builds from
@@ -138,6 +155,7 @@ again. A cache problem never fails the job. Turn it off with `--cache=false`.
 | `--allow-prereleases` | false | Let a `major.minor` spec match prereleases when there is no stable release |
 | `--freethreaded` | false | Install a free-threaded build |
 | `--pip-version` | (empty) | Version of pip to install into the installed Python |
+| `--bin-dir` | (empty) | Link `python` and `pip` into this directory instead of discovering one on `PATH` |
 | `--cache` | true | Set `--cache=false` to disable caching the install |
 
 ## Installing dependencies
@@ -215,12 +233,17 @@ refreshes the cache on its own — plus `$CIRCLE_BRANCH` and the Python version 
 default:
 
 ```
-<cache-version>-cci_pycache-[<CIRCLE_BRANCH>-]-[<python --version>-]-<sha256(lockfile)>
+<cache-version>-cci_pycache[-<CIRCLE_BRANCH>][-<python --version>]-<sha256(lockfile)>
 ```
+
+The Python component is the whole output of `python --version`, space
+included, as in `v1-cci_pycache-main-Python 3.13.1-<sha256>`. With
+`$CIRCLE_BRANCH` unset, the branch component is empty, leaving
+`v1-cci_pycache--Python 3.13.1-<sha256>`.
 
 Drop a component with `--include-branch-in-cache-key=false` /
 `--include-python-in-cache-key=false`, or replace the whole key with
-`--cache-key-override`.
+`--cache-key-override`, which is used as it is, without reading the lockfile.
 
 Turn one bucket off with `--venv-cache=false` / `--pypi-cache=false`, or all
 caching with `--cache=false`. Point `--venv-path` at a directory (repeatable) to
