@@ -202,7 +202,8 @@ Drop a component with `--include-branch-in-cache-key=false` /
 Turn one bucket off with `--venv-cache=false` / `--pypi-cache=false`, or all
 caching with `--cache=false`. Point `--venv-path` at a directory (repeatable) to
 override the detected venv path(s) for any manager. Cache problems never fail the
-job.
+job: with no lockfile, or a `python --version` that fails, `install-packages`
+installs without caching.
 
 ### Flags
 
