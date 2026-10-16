@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -50,15 +51,7 @@ func (c *installPackagesCmd) Run(ctx context.Context, client *sdk.Client) error 
 	}
 	fmt.Fprintf(os.Stderr, "setup-python: using package manager %s\n", pm)
 
-	paths, err := c.cachePaths(pm)
-	if err != nil {
-		return err
-	}
-
-	cacheKey, err := c.restoreCache(ctx, client, pm, paths)
-	if err != nil {
-		return err
-	}
+	cacheKey, paths := c.restoreCache(ctx, client, pm)
 
 	if err := c.installPackages(ctx, pm, binaries); err != nil {
 		return err
@@ -110,22 +103,36 @@ func (c *installPackagesCmd) cachePaths(pm python.PackageManager) ([]string, err
 	return paths, nil
 }
 
-// restoreCache computes the cache key and restores paths under it, returning
-// the empty string (telling the caller to skip the eventual save) when
-// caching is disabled or there's nothing to cache (both --pypi-cache=false and
-// --venv-cache=false).
-func (c *installPackagesCmd) restoreCache(ctx context.Context, client *sdk.Client, pm python.PackageManager, paths []string) (string, error) {
-	if !c.Cache || len(paths) == 0 {
+// restoreCache computes the cache key and restores the cache under it,
+// returning the key and the paths to save under it afterwards. It returns an
+// empty key, telling the caller to skip the save, when caching is disabled,
+// there's nothing to cache (both --pypi-cache=false and --venv-cache=false),
+// or the key can't be computed: a cache problem never fails the job.
+func (c *installPackagesCmd) restoreCache(ctx context.Context, client *sdk.Client, pm python.PackageManager) (string, []string) {
+	if !c.Cache {
+		return "", nil
+	}
+	paths, err := c.cachePaths(pm)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "setup-python: warning: %v; skipping cache\n", err)
+		return "", nil
+	}
+	if len(paths) == 0 {
 		return "", nil
 	}
 
-	lockfilePath := filepath.Join(c.AppDir, lockfileName(pm, c.PipDependencyFile))
-	cacheKey, err := python.CacheKey(c.CacheVersion, c.IncludeBranchInCacheKey, c.IncludePythonInCacheKey, lockfilePath, c.CacheKeyOverride)
+	lockfile := lockfileName(pm, c.PipDependencyFile)
+	cacheKey, err := python.CacheKey(c.CacheVersion, c.IncludeBranchInCacheKey, c.IncludePythonInCacheKey, filepath.Join(c.AppDir, lockfile), c.CacheKeyOverride)
+	if errors.Is(err, python.ErrNoLockfile) {
+		fmt.Fprintf(os.Stderr, "setup-python: no %s in %s, skipping cache\n", lockfile, c.AppDir)
+		return "", nil
+	}
 	if err != nil {
-		return "", fmt.Errorf("compute cache key: %w", err)
+		fmt.Fprintf(os.Stderr, "setup-python: warning: compute cache key: %v; skipping cache\n", err)
+		return "", nil
 	}
 	python.RestoreCache(ctx, client, cacheKey)
-	return cacheKey, nil
+	return cacheKey, paths
 }
 
 // installPackages runs pm's install command in c.AppDir. pip and pip-dist

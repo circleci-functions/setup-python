@@ -1,8 +1,10 @@
 package clitest_test
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -139,6 +141,53 @@ func TestCLI_InstallPackages_InstallArgs(t *testing.T) {
 			calls := stubCalls(t, logPath)
 			assert.Equal(t, len(calls), 1, "expected exactly the install invocation; got: %v", calls)
 			assert.Equal(t, calls[0], tc.wantCall)
+		})
+	}
+}
+
+// TestCLI_InstallPackages_SkipsCacheItCantKey checks that a cache key
+// install-packages can't compute skips the cache rather than failing the job:
+// the install still runs, and nothing is saved.
+func TestCLI_InstallPackages_SkipsCacheItCantKey(t *testing.T) {
+	failingPython := "#!/bin/sh\nexit 1\n"
+	tests := []struct {
+		name    string
+		files   []string
+		tool    string
+		python  string
+		env     map[string]string
+		args    []string
+		wantOut string
+		wantRun string
+	}{
+		{name: "no poetry.lock", files: []string{"pyproject.toml"}, tool: "poetry", wantOut: "no poetry.lock in ", wantRun: "poetry install --no-ansi"},
+		{name: "no Pipfile.lock", files: []string{"Pipfile"}, tool: "pipenv", wantOut: "no Pipfile.lock in ", wantRun: "pipenv install"},
+		{name: "python --version fails", files: []string{"requirements.txt"}, python: failingPython, wantOut: "warning: compute cache key: resolve python version", wantRun: "pip install -r requirements.txt"},
+		{name: "no home directory", files: []string{"requirements.txt"}, env: map[string]string{"HOME": "", "XDG_CACHE_HOME": ""}, wantOut: "skipping cache", wantRun: "pip install -r requirements.txt"},
+		{name: "no home directory, cache off", files: []string{"requirements.txt"}, env: map[string]string{"HOME": "", "XDG_CACHE_HOME": ""}, args: []string{"--cache=false"}, wantRun: "pip install -r requirements.txt"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			s, run := sandbox(t)
+			env, logPath := stubTools(t, append(pythonStubs, tc.tool)...)
+			maps.Copy(env, tc.env)
+			if tc.python != "" {
+				//nolint:gosec // test stub; 0700 so it is executable
+				assert.NilError(t, os.WriteFile(filepath.Join(env["PATH"], "python"), []byte(tc.python), 0700))
+			}
+			appDir := t.TempDir()
+			for _, f := range tc.files {
+				assert.NilError(t, os.WriteFile(filepath.Join(appDir, f), nil, 0600))
+			}
+
+			out, err := run(t, env, append([]string{"install-packages", "--app-dir", appDir}, tc.args...)...)
+			assert.NilError(t, err, "output: %s", out)
+			if tc.wantOut != "" {
+				assert.Assert(t, strings.Contains(out, tc.wantOut), "output: %s", out)
+			}
+			assert.Assert(t, slices.Contains(stubCalls(t, logPath), tc.wantRun), "calls: %v", stubCalls(t, logPath))
+			assert.Equal(t, len(s.Cache.SavedKeys()), 0, "saved: %v", s.Cache.SavedKeys())
 		})
 	}
 }
