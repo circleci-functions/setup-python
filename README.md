@@ -78,6 +78,22 @@ for, as on an image that ships it, pyenv keeps running that one, and
 setup-python runs, it fails rather than leave later steps running a Python
 other than the one asked for.
 
+### Where it links
+
+`python`, `python3`, `python3.X`, `pip`, `pip3` and `pip3.X` are linked into
+a directory `PATH` already holds, so later steps run them by name in any shell
+without sourcing anything.
+
+The directory is chosen by preference — `~/.local/bin`, `~/bin`,
+`/usr/local/bin` — and if none of those is on `PATH` ahead of an existing
+Python, that Python is taken over instead. If the link directory is not
+writable, setup-python falls back to `sudo -n ln`; on macOS system directories,
+sudo is skipped. A binary it replaces is kept as `<name>.pathlink-old` in the
+same directory.
+
+setup-python checks whether it can link before downloading, so a job that
+could never use the installed Python fails immediately with what to change.
+
 ### Where the list of builds comes from
 
 Each release of setup-python has the list of builds from

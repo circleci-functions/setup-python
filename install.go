@@ -48,6 +48,10 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 		return err
 	}
 
+	if err := pythonpath.Check(pythonpath.Options{BinDir: c.BinDir}); err != nil {
+		return err
+	}
+
 	version, root, err := c.ensureInstalled(ctx, client, spec, platform)
 	if err != nil {
 		return err

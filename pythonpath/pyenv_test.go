@@ -98,3 +98,16 @@ func TestPyenvRoot(t *testing.T) {
 	_, ok = pyenvRoot(t.TempDir())
 	assert.Assert(t, !ok)
 }
+
+// TestCheck_SkipsWhenPyenv verifies that Check returns nil even when pyenv's
+// shims directory is not writable, because Link registers the install with
+// pyenv rather than linking into PATH directly.
+func TestCheck_SkipsWhenPyenv(t *testing.T) {
+	root := fakepyenv.New(t, "3.12.0")
+	shims := filepath.Join(root, "shims")
+	assert.NilError(t, os.Chmod(shims, 0555))       //nolint:gosec // directory must be unwritable for the test
+	t.Cleanup(func() { _ = os.Chmod(shims, 0755) }) //nolint:gosec // restore so t.TempDir cleanup succeeds
+
+	err := Check(Options{Path: shims})
+	assert.NilError(t, err)
+}
