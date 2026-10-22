@@ -53,3 +53,15 @@ func TestCLI_ToolNotOnPATH(t *testing.T) {
 	assert.Assert(t, err != nil, "expected a non-zero exit; output: %s", out)
 	assert.Assert(t, strings.Contains(out, "not found on PATH"), "expected a not-found-on-PATH error; output: %s", out)
 }
+
+// TestCLI_DescribePublishesBinDir checks --bin-dir is in the published
+// descriptor, so a functions: step can pass it as the way out of linking with
+// sudo.
+func TestCLI_DescribePublishesBinDir(t *testing.T) {
+	_, run := sandbox(t)
+
+	out, err := run(t, nil, "--describe")
+	assert.NilError(t, err, "output: %s", out)
+	assert.Assert(t, strings.Contains(out, "name: bin-dir"), "output: %s", out)
+	assert.Assert(t, !strings.Contains(out, "name: downloads-url"), "output: %s", out)
+}

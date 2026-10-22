@@ -5,15 +5,34 @@ An optional `install-packages` command then installs your dependencies with
 the right package manager, caching what it downloads.
 
 ```yaml
-steps:
-  - checkout
-  - run:
-      name: Install Python
-      command: circleci run setup-python@<version> -- --python-version 3.13
-  - run:
-      name: Install dependencies
-      command: circleci run setup-python@<version> -- install-packages --app-dir ./service
-  - run: pytest
+functions:
+  setup-python: github.com/circleci-functions/setup-python@<version>
+
+jobs:
+  test:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup-python:
+          with:
+            python-version: "3.13"
+      - setup-python/install-packages:
+          with:
+            app-dir: ./service
+      - run: pytest
+```
+
+`- setup-python:` runs the default command, which installs Python, and
+`- setup-python/install-packages:` runs `install-packages`. Each flag in the
+tables below is a `with:` key, written without its leading `--`.
+
+Where the `functions:` block isn't enabled, such as on CircleCI Server, run the
+same commands with `circleci run` and the function's full name:
+
+```yaml
+- run: circleci run github.com/circleci-functions/setup-python@<version> -- --python-version 3.13
+- run: circleci run github.com/circleci-functions/setup-python@<version> -- install-packages --app-dir ./service
 ```
 
 ## Installing Python
@@ -55,7 +74,9 @@ Or read the version from a file with `--python-version-file`:
 | `Pipfile` | `requires.python_full_version`, then `requires.python_version` |
 
 ```yaml
-- run: circleci run setup-python@<version> -- --python-version-file pyproject.toml
+- setup-python:
+    with:
+      python-version-file: pyproject.toml
 ```
 
 With neither flag, setup-python reads `.python-version` from the step's
@@ -83,16 +104,21 @@ other than the one asked for.
 
 ### Where it links
 
-`python`, `python3`, `python3.X`, `pip`, `pip3` and `pip3.X` are linked into
-a directory `PATH` already holds, so later steps run them by name in any shell
-without sourcing anything.
+setup-python links into the first of `~/.local/bin`, `~/bin` and
+`/usr/local/bin` that is on `PATH` ahead of any Python already there and that
+it can write to. Failing that, it links into the directory of the Python
+already on `PATH`, replacing it there, or, with no Python on `PATH`, into the
+first directory on `PATH` it can write to, then `/usr/local/bin`. Where
+another `pip` comes ahead on `PATH` from a directory it can write to,
+setup-python links its own `pip` there too. A binary it replaces is kept as
+`<name>.pathlink-old` in the same directory.
 
-The directory is chosen by preference — `~/.local/bin`, `~/bin`,
-`/usr/local/bin` — and if none of those is on `PATH` ahead of an existing
-Python, that Python is taken over instead. If the link directory is not
-writable, setup-python falls back to `sudo -n ln`; on macOS system directories,
-sudo is skipped. A binary it replaces is kept as `<name>.pathlink-old` in the
-same directory.
+Where that directory needs root, as for a preinstalled `/usr/bin/python3`,
+setup-python links with `sudo -n`, so without passwordless sudo the step
+fails. On macOS system directories sudo is skipped. Put `~/.local/bin` on
+`PATH` ahead of that directory, or name a directory with `--bin-dir`:
+setup-python links into exactly that one, without searching `PATH` or
+registering with pyenv, so it has to be on `PATH` for later steps.
 
 setup-python checks whether it can link before downloading, so a job that
 could never use the installed Python fails immediately with what to change.
@@ -136,6 +162,7 @@ again. A cache problem never fails the job. Turn it off with `--cache=false`.
 | `--allow-prereleases` | false | Let a `major.minor` spec match prereleases when there is no stable release |
 | `--freethreaded` | false | Install a free-threaded build |
 | `--pip-version` | (empty) | Version of pip to install into the installed Python |
+| `--bin-dir` | (empty) | Link `python` and `pip` into this directory instead of discovering one on `PATH` |
 | `--cache` | true | Set `--cache=false` to disable caching the install |
 
 ## Installing dependencies
@@ -145,7 +172,9 @@ restores its virtualenv and pypi caches, runs the install, and saves the caches
 back.
 
 ```yaml
-- run: circleci run setup-python@<version> -- install-packages --app-dir ./service
+- setup-python/install-packages:
+    with:
+      app-dir: ./service
 ```
 
 It uses the `python` and `pip` on `PATH`; if the executor only has `python3`
@@ -154,9 +183,11 @@ and installs with `python3` and `pip3` anyway. Package managers other than pip
 need to be on `PATH` already:
 
 ```yaml
-- run: circleci run setup-python@<version> -- --python-version 3.13
+- setup-python:
+    with:
+      python-version: "3.13"
 - run: pip install poetry
-- run: circleci run setup-python@<version> -- install-packages
+- setup-python/install-packages
 ```
 
 ### Choosing a package manager
@@ -176,7 +207,9 @@ They are matched in that order (first match wins). Set `--package-manager` to pi
 one explicitly instead:
 
 ```yaml
-- run: circleci run setup-python@<version> -- install-packages --package-manager poetry
+- setup-python/install-packages:
+    with:
+      package-manager: poetry
 ```
 
 Each manager runs its standard install command; `--args` is appended verbatim to
@@ -208,12 +241,17 @@ refreshes the cache on its own — plus `$CIRCLE_BRANCH` and the Python version 
 default:
 
 ```
-<cache-version>-cci_pycache-[<CIRCLE_BRANCH>-]-[<python --version>-]-<sha256(lockfile)>
+<cache-version>-cci_pycache[-<CIRCLE_BRANCH>][-<python --version>]-<sha256(lockfile)>
 ```
+
+The Python component is the whole output of `python --version`, space
+included, as in `v1-cci_pycache-main-Python 3.13.1-<sha256>`. With
+`$CIRCLE_BRANCH` unset, the branch component is empty, leaving
+`v1-cci_pycache--Python 3.13.1-<sha256>`.
 
 Drop a component with `--include-branch-in-cache-key=false` /
 `--include-python-in-cache-key=false`, or replace the whole key with
-`--cache-key-override`.
+`--cache-key-override`, which is used as it is, without reading the lockfile.
 
 Turn one bucket off with `--venv-cache=false` / `--pypi-cache=false`, or all
 caching with `--cache=false`. Point `--venv-path` at a directory (repeatable) to

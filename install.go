@@ -33,7 +33,7 @@ type installCmd struct {
 	PipVersion        string `help:"Version of pip to install into the installed Python, e.g. 24.2."`
 	Cache             bool   `help:"Restore the Python install from the job cache, and save it after a fresh download. Set to false to disable caching." default:"true"`
 	InstallDir        string `help:"Directory to install Python versions under." default:"~/.cache/setup-python" hidden:""`
-	BinDir            string `help:"Link python and pip into this directory instead of discovering one on PATH." type:"path" hidden:""`
+	BinDir            string `help:"Link python and pip into this directory instead of discovering one on PATH." type:"path"`
 	CacheNonce        string `help:"Partition the Python install cache, so a test run cannot restore an earlier run's install." hidden:""`
 	DownloadsURL      string `help:"Read the list of Python builds from this URL instead of setup-python's built-in one." hidden:""`
 }
