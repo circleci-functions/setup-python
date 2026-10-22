@@ -40,7 +40,9 @@ same commands with `circleci run` and the function's full name:
 With no command, setup-python downloads a CPython build for the machine it
 runs on, checks it against its SHA-256, and links `python`, `python3`,
 `python3.X`, `pip`, `pip3` and `pip3.X` into a directory already on `PATH`.
-Later steps run them by name, in any shell, without sourcing anything.
+Later steps run them by name, in any shell, without sourcing anything. If they
+can't be linked, the step fails, since later steps could not run the Python it
+installed.
 
 The builds are [python-build-standalone](https://github.com/astral-sh/python-build-standalone)'s,
 the relocatable CPython builds uv installs. They depend on nothing but the C
@@ -80,8 +82,9 @@ Or read the version from a file with `--python-version-file`:
 With neither flag, setup-python reads `.python-version` from the step's
 working directory. With no `.python-version` either, it uses the Python 3
 already on `PATH` and installs nothing, linking `python` to `python3` if only
-`python3` resolves. With no Python on `PATH` at all, it installs the newest
-stable release. `--python-version` wins when both flags are set.
+`python3` resolves, and only warning if that link fails. With no Python on
+`PATH` at all, it installs the newest stable release. `--python-version` wins
+when both flags are set.
 
 ### pyenv
 
@@ -107,14 +110,18 @@ it can write to. Failing that, it links into the directory of the Python
 already on `PATH`, replacing it there, or, with no Python on `PATH`, into the
 first directory on `PATH` it can write to, then `/usr/local/bin`. Where
 another `pip` comes ahead on `PATH` from a directory it can write to,
-setup-python links its own `pip` there too.
+setup-python links its own `pip` there too. A binary it replaces is kept as
+`<name>.pathlink-old` in the same directory.
 
 Where that directory needs root, as for a preinstalled `/usr/bin/python3`,
 setup-python links with `sudo -n`, so without passwordless sudo the step
-fails. Put `~/.local/bin` on `PATH` ahead of that directory, or name a
-directory with `--bin-dir`: setup-python links into exactly that one, without
-searching `PATH` or registering with pyenv, so it has to be on `PATH` for
-later steps.
+fails. On macOS system directories sudo is skipped. Put `~/.local/bin` on
+`PATH` ahead of that directory, or name a directory with `--bin-dir`:
+setup-python links into exactly that one, without searching `PATH` or
+registering with pyenv, so it has to be on `PATH` for later steps.
+
+setup-python checks whether it can link before downloading, so a job that
+could never use the installed Python fails immediately with what to change.
 
 ### Where the list of builds comes from
 
@@ -171,8 +178,9 @@ back.
 ```
 
 It uses the `python` and `pip` on `PATH`; if the executor only has `python3`
-and `pip3`, it links `python` and `pip` to them. Package managers other than
-pip need to be on `PATH` already:
+and `pip3`, it links `python` and `pip` to them. If that link fails, it warns
+and installs with `python3` and `pip3` anyway. Package managers other than pip
+need to be on `PATH` already:
 
 ```yaml
 - setup-python:
@@ -248,7 +256,8 @@ Drop a component with `--include-branch-in-cache-key=false` /
 Turn one bucket off with `--venv-cache=false` / `--pypi-cache=false`, or all
 caching with `--cache=false`. Point `--venv-path` at a directory (repeatable) to
 override the detected venv path(s) for any manager. Cache problems never fail the
-job.
+job: with no lockfile, or a `python --version` that fails, `install-packages`
+installs without caching.
 
 ### Flags
 

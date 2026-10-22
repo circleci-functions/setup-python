@@ -3,10 +3,12 @@ package clitest_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"gotest.tools/v3/assert"
+	"gotest.tools/v3/skip"
 
 	"github.com/circleci-functions/toolkit/sdk/sdktest"
 
@@ -85,6 +87,33 @@ func TestCLI_Install_RegistersWithPyenv(t *testing.T) {
 	global, err := os.ReadFile(filepath.Join(root, "version"))
 	assert.NilError(t, err)
 	assert.Equal(t, string(global), "3.13.1\n")
+}
+
+// TestCLI_Install_FailsBeforeDownloadWhenCannotLink covers an environment
+// where linking needs root but sudo cannot provide it: install must fail before
+// any download so the job does not download something it cannot use.
+func TestCLI_Install_FailsBeforeDownloadWhenCannotLink(t *testing.T) {
+	skip.If(t, runtime.GOOS == "windows", "the fake python is a shell script")
+	srv, _ := installEnv(t)
+	s := sdktest.NewSandbox(t)
+
+	// An unwritable directory with python already on PATH simulates a
+	// root-owned system directory that holds the executor's preinstalled Python.
+	sysDir := t.TempDir()
+	assert.NilError(t, os.WriteFile(filepath.Join(sysDir, "python"), []byte("#!/bin/sh\necho 'Python 3.11.0'\n"), 0700)) //nolint:gosec // must be executable
+	assert.NilError(t, os.Chmod(sysDir, 0555))                                                                           //nolint:gosec // directory must be unwritable for the test
+	t.Cleanup(func() { _ = os.Chmod(sysDir, 0755) })                                                                     //nolint:gosec // restore permissions so t.TempDir cleanup succeeds
+
+	// A fake sudo that refuses, so elevation cannot proceed.
+	toolsDir := t.TempDir()
+	assert.NilError(t, os.WriteFile(filepath.Join(toolsDir, "sudo"), []byte("#!/bin/sh\nexit 1\n"), 0700)) //nolint:gosec // must be executable
+
+	out, err := runIn(t, s, t.TempDir(),
+		map[string]string{"PATH": sysDir + string(os.PathListSeparator) + toolsDir},
+		"--downloads-url", srv.MetadataURL(), "--python-version", "3.13")
+	assert.Assert(t, err != nil, "expected a non-zero exit; output: %s", out)
+	assert.Assert(t, strings.Contains(out, "needs root"), "expected link-check error; output: %s", out)
+	assert.Equal(t, srv.Downloads(), 0, "expected no downloads before the link check failed")
 }
 
 // TestCLI_Install_UsesPyenvsOwnInstallOfTheVersion covers an image whose pyenv

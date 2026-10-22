@@ -48,6 +48,10 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 		return err
 	}
 
+	if err := pythonpath.Check(pythonpath.Options{BinDir: c.BinDir}); err != nil {
+		return err
+	}
+
 	version, root, err := c.ensureInstalled(ctx, client, spec, platform)
 	if err != nil {
 		return err
@@ -155,9 +159,7 @@ func (c *installCmd) useSystemPython() bool {
 	if c.PipVersion != "" {
 		fmt.Fprintf(os.Stderr, "setup-python: warning: ignoring --pip-version, which only applies to a Python setup-python installs\n")
 	}
-	if err := python.EnsureAliased(python.ResolveBinaries()); err != nil {
-		fmt.Fprintf(os.Stderr, "setup-python: warning: link python to python3: %v\n", err)
-	}
+	linkAliases(python.ResolveBinaries())
 	return true
 }
 

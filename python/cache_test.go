@@ -262,8 +262,8 @@ func TestCachePypiPaths(t *testing.T) {
 // TestCacheKey verifies the composition of the cache key: the branch and
 // python version components appear only when asked for, the lockfile
 // checksum always terminates the key, a non-empty override short-circuits
-// everything, and a missing lockfile or unresolvable python version is a
-// hard error.
+// everything, and a missing lockfile or unresolvable python version is an
+// error, the missing lockfile reported as ErrNoLockfile.
 func TestCacheKey(t *testing.T) {
 	dir := t.TempDir()
 	lockfile := filepath.Join(dir, "requirements.txt")
@@ -288,6 +288,7 @@ func TestCacheKey(t *testing.T) {
 		versionErr    error
 		want          string
 		wantErr       string
+		wantErrIs     error
 	}{
 		{
 			name:       "neither branch nor python version",
@@ -340,10 +341,12 @@ func TestCacheKey(t *testing.T) {
 			want:          "my-override-key",
 		},
 		{
-			name:       "missing lockfile is an error",
-			lockfile:   missing,
-			versionErr: errNotCalled,
-			wantErr:    "read lockfile",
+			name:          "missing lockfile is ErrNoLockfile, without consulting python",
+			includePython: true,
+			lockfile:      missing,
+			versionErr:    errNotCalled,
+			wantErr:       ErrNoLockfile.Error(),
+			wantErrIs:     ErrNoLockfile,
 		},
 		{
 			name:          "unresolvable python version is an error",
@@ -362,6 +365,9 @@ func TestCacheKey(t *testing.T) {
 			got, err := CacheKey("v1", tc.includeBranch, tc.includePython, tc.lockfile, tc.override)
 			if tc.wantErr != "" {
 				assert.ErrorContains(t, err, tc.wantErr)
+				if tc.wantErrIs != nil {
+					assert.ErrorIs(t, err, tc.wantErrIs)
+				}
 				return
 			}
 			assert.NilError(t, err)
