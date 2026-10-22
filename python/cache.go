@@ -3,7 +3,9 @@ package python
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -113,6 +115,10 @@ func PypiPaths(pm PackageManager) ([]string, error) {
 	}
 }
 
+// ErrNoLockfile is returned by CacheKey when the lockfile it hashes doesn't
+// exist, which leaves nothing to key the cache on.
+var ErrNoLockfile = errors.New("no lockfile")
+
 // CacheKey returns the cache key for the venv/pypi cache buckets. A non-empty
 // override is returned verbatim, without reading the lockfile. Otherwise the
 // key is:
@@ -124,6 +130,16 @@ func PypiPaths(pm PackageManager) ([]string, error) {
 func CacheKey(cacheVersion string, includeBranch, includePython bool, lockfilePath, override string) (string, error) {
 	if override != "" {
 		return override, nil
+	}
+
+	// No {{ checksum }} templating: the function runs at cache-key-compute
+	// time, not config-compile time, so it can just read the file itself.
+	lockfile, err := os.ReadFile(lockfilePath) //nolint:gosec // lockfilePath is one of a fixed set of known filenames joined onto --app-dir
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", fmt.Errorf("%w: %s", ErrNoLockfile, lockfilePath)
+	}
+	if err != nil {
+		return "", fmt.Errorf("read lockfile %s: %w", lockfilePath, err)
 	}
 
 	key := cacheVersion + "-" + cacheKeyTag
@@ -140,12 +156,6 @@ func CacheKey(cacheVersion string, includeBranch, includePython bool, lockfilePa
 		key += "-" + version
 	}
 
-	// No {{ checksum }} templating: the function runs at cache-key-compute
-	// time, not config-compile time, so it can just read the file itself.
-	lockfile, err := os.ReadFile(lockfilePath) //nolint:gosec // lockfilePath is one of a fixed set of known filenames joined onto --app-dir
-	if err != nil {
-		return "", fmt.Errorf("read lockfile %s: %w", lockfilePath, err)
-	}
 	key += fmt.Sprintf("-%x", sha256.Sum256(lockfile))
 
 	return key, nil
