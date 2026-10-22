@@ -76,6 +76,29 @@ type Result struct {
 	PipDirs []string
 }
 
+// Check reports an error if Link would be unable to make python resolvable on
+// the step's PATH. It mirrors Link's routing: when opts.BinDir is empty and
+// pyenv's shims are on opts.Path, Link registers the install with pyenv rather
+// than linking into PATH directly, so Check returns nil without a link check.
+func Check(opts Options) error {
+	if opts.BinDir == "" {
+		if _, ok := pyenvRoot(opts.Path); ok {
+			return nil
+		}
+	}
+	names := []string{"python", "python3"}
+	if runtime.GOOS == "windows" {
+		names = []string{"python"}
+	}
+	_, err := pathlink.Check(pathlink.Options{
+		Names:     names,
+		Preferred: pathlink.UserBinDirs(),
+		Dir:       opts.BinDir,
+		Path:      opts.Path,
+	})
+	return err
+}
+
 // Link makes python, python3, python3.X, pip, pip3 and pip3.X resolvable by
 // name from a directory already on PATH.
 //

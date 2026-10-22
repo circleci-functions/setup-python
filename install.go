@@ -8,11 +8,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 
-	"github.com/circleci-functions/toolkit/pathlink"
 	"github.com/circleci-functions/toolkit/sdk"
 
 	"github.com/circleci-functions/setup-python/python"
@@ -50,7 +48,7 @@ func (c *installCmd) Run(ctx context.Context, client *sdk.Client) error {
 		return err
 	}
 
-	if err := c.checkCanLink(); err != nil {
+	if err := pythonpath.Check(pythonpath.Options{BinDir: c.BinDir}); err != nil {
 		return err
 	}
 
@@ -98,22 +96,6 @@ func (c *installCmd) reportLinked(version, root string, linked pythonpath.Result
 			fmt.Fprintf(os.Stderr, "setup-python: warning: pip resolves from %s, ahead of %s; run python -m pip for the pip of the Python installed here\n", other, dir)
 		}
 	}
-}
-
-// checkCanLink reports an error when the step's environment cannot support
-// linking Python onto PATH, so a job that could never use what it downloads
-// fails before any download.
-func (c *installCmd) checkCanLink() error {
-	names := []string{"python", "python3"}
-	if runtime.GOOS == "windows" {
-		names = []string{"python"}
-	}
-	_, err := pathlink.Check(pathlink.Options{
-		Names:     names,
-		Preferred: pathlink.UserBinDirs(),
-		Dir:       c.BinDir,
-	})
-	return err
 }
 
 // spec returns the version spec to install, or false when nothing asks for a
