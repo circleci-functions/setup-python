@@ -147,6 +147,58 @@ func TestCLI_InstallPackages_InstallArgs(t *testing.T) {
 	}
 }
 
+// TestCLI_InstallPackages_InstallsPackageManager checks that a package
+// manager missing from PATH is installed with pip, at the version
+// pyproject.toml pins, before it runs. The pip stub copies itself onto PATH
+// under the package manager's name, as pip would install it there.
+func TestCLI_InstallPackages_InstallsPackageManager(t *testing.T) {
+	skip.If(t, runtime.GOOS == "windows", "the stubs are shell scripts")
+
+	tests := []struct {
+		name       string
+		pkgManager string
+		pyproject  string
+		wantCalls  []string
+	}{
+		{name: "uv", pkgManager: "uv", wantCalls: []string{"pip install uv", "uv sync"}},
+		{name: "pinned uv", pkgManager: "uv", pyproject: "[tool.uv]\nrequired-version = \">=0.5\"\n", wantCalls: []string{"pip install uv>=0.5", "uv sync"}},
+		{name: "pinned poetry", pkgManager: "poetry", pyproject: "[tool.poetry]\nrequires-poetry = \">=2.0\"\n", wantCalls: []string{"pip install poetry>=2.0", "poetry install --no-ansi"}},
+		{name: "pipenv", pkgManager: "pipenv", wantCalls: []string{"pip install pipenv", "pipenv install"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, run := sandbox(t)
+			env, logPath := stubTools(t, pythonStubs...)
+			pip := "#!/bin/sh\nprintf '%s %s\\n' \"${0##*/}\" \"$*\" >> \"$STUB_LOG\"\n[ \"${0##*/}\" != pip ] || /bin/cp \"$0\" \"${0%/*}/" + tc.pkgManager + "\"\n"
+			//nolint:gosec // test stub; 0700 so it is executable
+			assert.NilError(t, os.WriteFile(filepath.Join(env["PATH"], "pip"), []byte(pip), 0700))
+			appDir := t.TempDir()
+			if tc.pyproject != "" {
+				assert.NilError(t, os.WriteFile(filepath.Join(appDir, "pyproject.toml"), []byte(tc.pyproject), 0600))
+			}
+
+			out, err := run(t, env, "install-packages", "--app-dir", appDir, "--package-manager", tc.pkgManager, "--cache=false")
+			assert.NilError(t, err, "output: %s", out)
+			assert.DeepEqual(t, stubCalls(t, logPath), tc.wantCalls)
+		})
+	}
+}
+
+// TestCLI_InstallPackages_PackageManagerStillMissing checks that when pip
+// installs the package manager somewhere off PATH, install-packages fails
+// saying so rather than running it.
+func TestCLI_InstallPackages_PackageManagerStillMissing(t *testing.T) {
+	_, run := sandbox(t)
+	env, logPath := stubTools(t, pythonStubs...)
+	appDir := t.TempDir()
+
+	out, err := run(t, env, "install-packages", "--app-dir", appDir, "--package-manager", "uv", "--cache=false")
+	assert.Assert(t, err != nil, "expected a failure; output: %s", out)
+	assert.Assert(t, strings.Contains(out, "installed uv, but uv is still not on PATH"), "output: %s", out)
+	assert.DeepEqual(t, stubCalls(t, logPath), []string{"pip install uv"})
+}
+
 // TestCLI_InstallPackages_AliasLinkFailureWarns covers an executor with only
 // python3 and pip3, in a directory install-packages can't link python and pip
 // into: it warns and installs with pip3 anyway.

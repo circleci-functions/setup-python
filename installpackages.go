@@ -148,9 +148,28 @@ func (c *installPackagesCmd) installPackages(ctx context.Context, pm python.Pack
 	installBin := pm.Binary()
 	if pm == python.Pip || pm == python.PipDist {
 		installBin = binaries.Pip
+	} else if err := ensurePackageManager(ctx, pm, binaries, c.AppDir); err != nil {
+		return err
 	}
 	args := pm.InstallArgs(c.PipDependencyFile, c.PathArgs, splitArgs(c.Args))
 	return runInstall(ctx, installBin, args, c.AppDir)
+}
+
+// ensurePackageManager installs pm with pip when it isn't on PATH, at the
+// version the project pins, if any.
+func ensurePackageManager(ctx context.Context, pm python.PackageManager, binaries python.Binaries, appDir string) error {
+	if _, err := exec.LookPath(pm.Binary()); err == nil {
+		return nil
+	}
+	requirement := pm.Requirement(appDir)
+	fmt.Fprintf(os.Stderr, "setup-python: %s is not on PATH; installing %s with %s\n", pm, requirement, binaries.Pip)
+	if err := runInstall(ctx, binaries.Pip, []string{"install", requirement}, appDir); err != nil {
+		return err
+	}
+	if _, err := exec.LookPath(pm.Binary()); err != nil {
+		return fmt.Errorf("installed %s, but %s is still not on PATH; put pip's scripts directory on PATH, or install %s in an earlier step", requirement, pm, pm)
+	}
+	return nil
 }
 
 // resolvePackageManager returns the package manager from the flag, or by
