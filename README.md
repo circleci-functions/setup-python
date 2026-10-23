@@ -231,7 +231,7 @@ per manager before installing and saves them back afterwards — the virtualenv
 
 | Package manager | venv path(s) | pypi path(s) | lockfile |
 |-----------------|--------------|--------------|----------|
-| pip / pip-dist | _(none — pip has no venv)_ | `~/.cache/pip`, `~/.pyenv/versions`, `~/.local/lib` | `--pip-dependency-file` |
+| pip / pip-dist | _(none — pip has no venv)_ | `~/.cache/pip` | `--pip-dependency-file` |
 | pipenv | `$WORKON_HOME`, else `~/.local/share/virtualenvs` (or `<app-dir>/.venvs` when `PIPENV_VENV_IN_PROJECT` is set) | `~/.cache/pip`, `~/.cache/pipenv` | `Pipfile.lock` |
 | poetry | `~/.cache/pypoetry/virtualenvs` | `~/.cache/pip` | `poetry.lock` |
 | uv | `<app-dir>/.venv` (or `$CIRCLE_WORKING_DIRECTORY/.venv`) | `~/.cache/uv` | `uv.lock` |

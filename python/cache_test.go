@@ -181,11 +181,10 @@ func TestCacheVenvPaths(t *testing.T) {
 	}
 }
 
-// TestCachePypiPaths verifies the download and site-packages directories
-// reported for each package manager, and that an unrecognized manager is an
-// error.
+// TestCachePypiPaths verifies the download directories reported for each
+// package manager, and that an unrecognized manager is an error.
 func TestCachePypiPaths(t *testing.T) {
-	home, cache := userDirs(t)
+	_, cache := userDirs(t)
 
 	pipCache := unixOrWindows(
 		filepath.Join(cache, "pip"),
@@ -199,14 +198,6 @@ func TestCachePypiPaths(t *testing.T) {
 		filepath.Join(cache, "uv"),
 		filepath.Join(cache, "uv", "cache"),
 	)
-	pyenv := unixOrWindows(
-		filepath.Join(home, ".pyenv", "versions"),
-		filepath.Join(home, ".pyenv", "pyenv-win", "versions"),
-	)
-	userLib := unixOrWindows(
-		filepath.Join(home, ".local", "lib"),
-		filepath.Join(os.Getenv("APPDATA"), "Python"),
-	)
 
 	tests := []struct {
 		name    string
@@ -215,14 +206,14 @@ func TestCachePypiPaths(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "pip caches downloads plus the pyenv and user lib trees",
+			name: "pip caches only its downloads",
 			pm:   Pip,
-			want: []string{pipCache, pyenv, userLib},
+			want: []string{pipCache},
 		},
 		{
 			name: "pip-dist matches pip",
 			pm:   PipDist,
-			want: []string{pipCache, pyenv, userLib},
+			want: []string{pipCache},
 		},
 		{
 			name: "pipenv adds its own cache to pip's",
