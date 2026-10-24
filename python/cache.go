@@ -75,8 +75,9 @@ func VenvPaths(pm PackageManager, appDir string, override []string) ([]string, e
 	}
 }
 
-// PypiPaths returns the directories holding pm's downloaded packages and
-// installed site-packages.
+// PypiPaths returns the directories holding pm's downloaded packages.
+// Installed packages are left out, since pip skips any it finds installed
+// and so would never put their commands back on PATH.
 func PypiPaths(pm PackageManager) ([]string, error) {
 	pip, err := toolCacheDir("pip", "pip", "Cache")
 	if err != nil {
@@ -84,26 +85,14 @@ func PypiPaths(pm PackageManager) ([]string, error) {
 	}
 
 	switch pm {
-	case Pip, PipDist:
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("resolve home directory: %w", err)
-		}
-		pyenv := filepath.Join(home, ".pyenv", "versions")
-		userLib := filepath.Join(home, ".local", "lib")
-		if runtime.GOOS == "windows" {
-			pyenv = filepath.Join(home, ".pyenv", "pyenv-win", "versions")
-			userLib = filepath.Join(os.Getenv("APPDATA"), "Python")
-		}
-		return []string{pip, pyenv, userLib}, nil
+	case Pip, PipDist, Poetry:
+		return []string{pip}, nil
 	case Pipenv:
 		pipenv, err := toolCacheDir("pipenv", "pipenv", "Cache")
 		if err != nil {
 			return nil, err
 		}
 		return []string{pip, pipenv}, nil
-	case Poetry:
-		return []string{pip}, nil
 	case UV:
 		uv, err := toolCacheDir("uv", "uv", "cache")
 		if err != nil {
