@@ -179,16 +179,14 @@ back.
 
 It uses the `python` and `pip` on `PATH`; if the executor only has `python3`
 and `pip3`, it links `python` and `pip` to them. If that link fails, it warns
-and installs with `python3` and `pip3` anyway. Package managers other than pip
-need to be on `PATH` already:
+and installs with `python3` and `pip3` anyway.
 
-```yaml
-- setup-python:
-    with:
-      python-version: "3.13"
-- run: pip install poetry
-- setup-python/install-packages
-```
+A package manager other than pip that isn't on `PATH` is installed with pip
+first: the version `pyproject.toml` pins with `tool.uv.required-version` or
+`tool.poetry.requires-poetry`, otherwise the latest. After setup-python's
+`install`, pip puts it on `PATH` (see [pip installs](#pip-installs)). Where pip
+installs it somewhere else, `install-packages` fails; install the package
+manager in an earlier step instead.
 
 ### Choosing a package manager
 

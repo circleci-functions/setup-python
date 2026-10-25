@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 // PackageManager is a supported Python package manager.
@@ -92,6 +95,45 @@ func (pm PackageManager) Binary() string {
 	default:
 		return string(pm)
 	}
+}
+
+// Requirement returns the pip requirement that installs pm for the project in
+// appDir: its name, plus the version pyproject.toml pins with uv's
+// required-version or Poetry's requires-poetry.
+func (pm PackageManager) Requirement(appDir string) string {
+	data, err := os.ReadFile(filepath.Join(appDir, "pyproject.toml")) //nolint:gosec // pyproject.toml in the directory the caller named
+	if err != nil {
+		return string(pm)
+	}
+	var doc struct {
+		Tool struct {
+			UV struct {
+				RequiredVersion string `toml:"required-version"`
+			} `toml:"uv"`
+			Poetry struct {
+				RequiresPoetry string `toml:"requires-poetry"`
+			} `toml:"poetry"`
+		} `toml:"tool"`
+	}
+	if toml.Unmarshal(data, &doc) != nil {
+		return string(pm)
+	}
+
+	var version string
+	switch pm {
+	case UV:
+		version = doc.Tool.UV.RequiredVersion
+	case Poetry:
+		version = doc.Tool.Poetry.RequiresPoetry
+	}
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return string(pm)
+	}
+	if version[0] >= '0' && version[0] <= '9' {
+		version = "==" + version
+	}
+	return string(pm) + version
 }
 
 // InstallArgs returns the argv (excluding the binary name) for pm's install

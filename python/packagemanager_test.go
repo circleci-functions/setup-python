@@ -229,3 +229,66 @@ func TestInstallArgs(t *testing.T) {
 		})
 	}
 }
+
+// TestRequirement verifies the pip requirement for each package manager,
+// with the version pyproject.toml pins for it, if any.
+func TestRequirement(t *testing.T) {
+	tests := []struct {
+		name      string
+		pm        python.PackageManager
+		pyproject string
+		want      string
+	}{
+		{
+			name: "no pyproject.toml",
+			pm:   python.UV,
+			want: "uv",
+		},
+		{
+			name:      "uv required-version",
+			pm:        python.UV,
+			pyproject: "[tool.uv]\nrequired-version = \">=0.5\"\n",
+			want:      "uv>=0.5",
+		},
+		{
+			name:      "poetry requires-poetry",
+			pm:        python.Poetry,
+			pyproject: "[tool.poetry]\nrequires-poetry = \">=2.0,<3\"\n",
+			want:      "poetry>=2.0,<3",
+		},
+		{
+			name:      "a bare version pins exactly",
+			pm:        python.Poetry,
+			pyproject: "[tool.poetry]\nrequires-poetry = \"2.1.3\"\n",
+			want:      "poetry==2.1.3",
+		},
+		{
+			name:      "another manager's pin is ignored",
+			pm:        python.Poetry,
+			pyproject: "[tool.uv]\nrequired-version = \">=0.5\"\n",
+			want:      "poetry",
+		},
+		{
+			name:      "pipenv has no pin",
+			pm:        python.Pipenv,
+			pyproject: "[tool.uv]\nrequired-version = \">=0.5\"\n",
+			want:      "pipenv",
+		},
+		{
+			name:      "invalid pyproject.toml",
+			pm:        python.UV,
+			pyproject: "[tool.uv",
+			want:      "uv",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if tc.pyproject != "" {
+				assert.NilError(t, os.WriteFile(filepath.Join(dir, "pyproject.toml"), []byte(tc.pyproject), 0600))
+			}
+			assert.Equal(t, tc.pm.Requirement(dir), tc.want)
+		})
+	}
+}
