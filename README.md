@@ -4,6 +4,8 @@ Installs Python and puts `python` and `pip` on `PATH` for the rest of the job.
 An optional `install-packages` command then installs your dependencies with
 the right package manager, caching what it downloads.
 
+Use this function instead of the `circleci/python` orb.
+
 ```yaml
 functions:
   setup-python: github.com/circleci-functions/setup-python@<version>
