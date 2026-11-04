@@ -27,7 +27,7 @@ func run(ctx context.Context, client *sdk.Client) error {
 	var flags cli
 	kCtx := kong.Parse(&flags,
 		kong.Name("setup-python"),
-		kong.Description("Install Python, and optionally a project's dependencies, caching what each downloads."),
+		kong.Description("Install Python, and optionally a project's dependencies, caching what each downloads. Use this function instead of the circleci/python orb."),
 		kong.UsageOnError(),
 		functionyaml.Embed(),
 	)
