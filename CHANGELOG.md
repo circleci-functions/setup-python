@@ -6,6 +6,14 @@ by its release PR (see [RELEASE.md](RELEASE.md)) and becomes its GitHub release 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-11-04
+
+### What's Changed
+* Say to use setup-python instead of the circleci/python orb by @mangyau in https://github.com/circleci-functions/setup-python/pull/35
+
+
+**Full Changelog**: https://github.com/circleci-functions/setup-python/compare/v0.5.0...v0.6.0
+
 ## [0.5.0] - 2026-10-25
 
 ### What's Changed
