@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="311" failures="0" errors="0" time="16.985510">
+	<testsuite tests="4" failures="0" time="0.549000" name="github.com/circleci-functions/setup-python" timestamp="2026-11-12T09:20:26-05:00">
+		<properties>
+			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
+		</properties>
+		<testcase classname="github.com/circleci-functions/setup-python" name="TestResolve_UsesTheBuiltInList" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python" name="TestResolve_ChecksTheLiveListForANewerRelease" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python" name="TestResolve_NoMatchAnywhere" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python" name="TestResolve_LiveListUnavailable" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="76" failures="0" time="16.986000" name="github.com/circleci-functions/setup-python/clitest" timestamp="2026-11-12T09:20:26-05:00">
+		<properties>
+			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
+		</properties>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_UnknownFlag" time="0.720000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InvalidPackageManager" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_AppDirMissing" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_ToolNotOnPATH" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_DescribePublishesBinDir" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_CacheRoundTrip/pip_caches_the_overridden_venv_path" time="0.480000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_CacheRoundTrip/poetry_caches_its_venv" time="1.200000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_CacheRoundTrip" time="1.680000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_CacheFlags/cache_enabled_saves" time="0.380000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_CacheFlags/cache_disabled_skips_the_save" time="0.220000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_CacheFlags/no_cache_buckets_selected_skips_the_save" time="0.240000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_CacheFlags" time="0.840000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_InstallArgs/pip" time="0.220000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_InstallArgs/pip-dist" time="0.230000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_InstallArgs/poetry" time="0.210000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_InstallArgs/pipenv" time="0.240000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_InstallArgs/uv" time="0.220000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_InstallArgs" time="1.120000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_InstallsPackageManager/uv" time="0.440000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_InstallsPackageManager/pinned_uv" time="0.400000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_InstallsPackageManager/pinned_poetry" time="0.440000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_InstallsPackageManager/pipenv" time="0.480000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_InstallsPackageManager" time="1.760000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_PackageManagerStillMissing" time="0.220000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_AliasLinkFailureWarns" time="0.410000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_SkipsCacheItCantKey/no_poetry.lock" time="0.160000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_SkipsCacheItCantKey/no_Pipfile.lock" time="0.160000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_SkipsCacheItCantKey/python_--version_fails" time="0.300000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_SkipsCacheItCantKey/no_home_directory" time="0.150000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_SkipsCacheItCantKey/no_home_directory,_cache_off" time="0.150000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_InstallPackages_SkipsCacheItCantKey" time="0.920000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_LinksOntoPath/build_with_bin/python" time="0.220000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_LinksOntoPath/build_without_bin/python" time="0.220000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_LinksOntoPath" time="0.440000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_TakesOverAPipAhead" time="0.200000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_RegistersWithPyenv" time="0.540000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_FailsBeforeDownloadWhenCannotLink" time="0.170000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_UsesPyenvsOwnInstallOfTheVersion" time="0.520000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_ResolvesVersion/minor" time="0.150000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_ResolvesVersion/exact" time="0.200000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_ResolvesVersion/build_without_bin/python" time="0.200000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_ResolvesVersion/prerelease_fallback" time="0.240000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_ResolvesVersion/exact_prerelease" time="0.210000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_ResolvesVersion/version_file" time="0.260000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_ResolvesVersion/explicit_install_command" time="0.220000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_ResolvesVersion" time="1.480000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_VersionFlagWinsOverFile" time="0.220000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_DefaultVersion/python-version" time="0.160000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_DefaultVersion/newest_stable_without_a_Python_on_PATH" time="0.150000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_DefaultVersion" time="0.310000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_UsesThePythonOnPath" time="0.210000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_FreethreadedWithoutAVersion" time="0.190000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Freethreaded/t_suffix" time="0.190000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Freethreaded/flag" time="0.190000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Freethreaded" time="0.380000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_LinksTools" time="0.220000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_UserInstalls/linked_into_the_user_scripts_directory" time="0.190000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_UserInstalls/linked_elsewhere" time="0.190000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_UserInstalls" time="0.380000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_PipVersion" time="0.200000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Cache/default" time="0.190000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Cache/nonce" time="0.180000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Cache" time="0.370000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_CacheKeyDependsOnWhereTheInstallLives" time="0.390000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_CacheDisabled" time="0.180000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_RestoresFromCache" time="0.470000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_RerunReusesInstall" time="0.170000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_ExactVersionNeedsNoListWhenAvailable" time="0.560000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Errors/no_matching_version" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Errors/no_stable_release" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Errors/no_free-threaded_build" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Errors/invalid_version" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Errors/pypy" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Errors/missing_version_file" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Errors/checksum_mismatch" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/clitest" name="TestCLI_Install_Errors" time="0.090000"></testcase>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="github.com/circleci-functions/setup-python/internal/cmd/update-downloads" timestamp="2026-11-12T09:20:26-05:00">
+		<properties>
+			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="github.com/circleci-functions/setup-python/internal/testing/fakedist" timestamp="2026-11-12T09:20:26-05:00">
+		<properties>
+			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="0" failures="0" time="0.000000" name="github.com/circleci-functions/setup-python/internal/testing/fakepyenv" timestamp="2026-11-12T09:20:26-05:00">
+		<properties>
+			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
+		</properties>
+	</testsuite>
+	<testsuite tests="86" failures="0" time="1.823000" name="github.com/circleci-functions/setup-python/python" timestamp="2026-11-12T09:20:26-05:00">
+		<properties>
+			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
+		</properties>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/pip_installs_globally_so_has_no_venv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/pip-dist_installs_globally_so_has_no_venv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/pipenv_defaults_to_the_per-user_virtualenvs_dir" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/pipenv_honours_WORKON_HOME" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/pipenv_prefers_PIPENV_VENV_IN_PROJECT_over_WORKON_HOME" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/poetry_keeps_virtualenvs_under_its_own_cache_dir" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/uv_defaults_to_&lt;app-dir&gt;/.venv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/uv_prefers_CIRCLE_WORKING_DIRECTORY_over_the_app_dir" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/unknown_package_manager_is_an_error" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/override_wins_for_pip" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/override_wins_for_pip-dist" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/override_wins_for_pipenv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/override_wins_for_poetry" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths/override_wins_for_uv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheVenvPaths" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCachePypiPaths/pip_caches_only_its_downloads" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCachePypiPaths/pip-dist_matches_pip" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCachePypiPaths/pipenv_adds_its_own_cache_to_pip&#39;s" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCachePypiPaths/poetry_downloads_through_pip" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCachePypiPaths/uv_uses_only_its_own_cache" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCachePypiPaths/unknown_package_manager_is_an_error" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCachePypiPaths" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheKey/neither_branch_nor_python_version" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheKey/branch_only" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheKey/python_version_only" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheKey/branch_and_python_version" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheKey/branch_requested_but_CIRCLE_BRANCH_unset" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheKey/override_is_returned_verbatim_without_reading_anything" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheKey/missing_lockfile_is_ErrNoLockfile,_without_consulting_python" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheKey/unresolvable_python_version_is_an_error" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheKey" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheRestoreAndSaveRoundTrip" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestCacheErrorIsNonFatal" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestResolveBinaries/python_on_PATH" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestResolveBinaries/only_python3_on_PATH" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestResolveBinaries" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestEnsureAliased/alias_needed" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestEnsureAliased/alias_not_needed" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestEnsureAliased/no_python3_to_link" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestEnsureAliased" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestVerifyPython" time="0.920000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestLinkAliases_LinksWithoutBeingToldTheDirectory" time="0.260000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/requirements.txt_+_setup.py_-&gt;_pip-dist" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/requirements.txt_+_custom_setup-file-path_-&gt;_pip-dist" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/requirements.txt_alone_-&gt;_pip" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/requirements.txt_+_pyproject.toml_(no_setup.py)_-&gt;_pip" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/requirements.txt_+_setup-file-path_set_but_file_missing_-&gt;_pip" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/Pipfile_-&gt;_pipenv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/uv.lock_-&gt;_uv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/pyproject.toml_alone_-&gt;_poetry" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/pip-dist_takes_priority_over_pipenv/uv/poetry" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/pipenv_takes_priority_over_uv/poetry" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/uv_takes_priority_over_poetry" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir/no_manager_detected" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestDetectFromDir" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestLockfile/pip" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestLockfile/pip-dist" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestLockfile/pipenv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestLockfile/uv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestLockfile/poetry" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestLockfile" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestBinary/pip" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestBinary/pip-dist" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestBinary/pipenv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestBinary/poetry" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestBinary/uv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestBinary" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestInstallArgs/pip" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestInstallArgs/pip_with_extra_args" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestInstallArgs/pip-dist" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestInstallArgs/pip-dist_with_extra_args" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestInstallArgs/pipenv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestInstallArgs/pipenv_with_extra_args" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestInstallArgs/poetry" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestInstallArgs/poetry_with_extra_args" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestInstallArgs/uv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestInstallArgs/uv_with_extra_args" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestInstallArgs" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestRequirement/no_pyproject.toml" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestRequirement/uv_required-version" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestRequirement/poetry_requires-poetry" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestRequirement/a_bare_version_pins_exactly" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestRequirement/another_manager&#39;s_pin_is_ignored" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestRequirement/pipenv_has_no_pin" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestRequirement/invalid_pyproject.toml" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/python" name="TestRequirement" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="37" failures="0" time="0.875000" name="github.com/circleci-functions/setup-python/pythondist" timestamp="2026-11-12T09:20:26-05:00">
+		<properties>
+			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
+		</properties>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestWithin/python/bin/python3" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestWithin/python/" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestWithin/../escape" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestWithin/python/../../escape" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestWithin" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestArchiveName" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestMuslInterpreter" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestExtract_KeepsModificationTimes" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestParse_KeepsOnlyInstallableBuilds" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestSnapshot" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestCatalog_MarshalRoundTrips" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestCatalog_Versions" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/linux-x86_64-gnu" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/linux-aarch64-gnu" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/linux-x86_64-musl" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/linux-aarch64-musl" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/linux-armv7-gnueabihf" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/linux-powerpc64le-gnu" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/linux-s390x-gnu" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/linux-riscv64-gnu" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/linux-i686-gnu" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/darwin-aarch64" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/darwin-x86_64" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/windows-x86_64" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/windows-aarch64" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform/windows-i686" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestPlatform_Unsupported" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestInstall/unix" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestInstall/windows" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestInstall" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestInstall_UnixLayoutRuns" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestInstall_LinksPythonWhereTheBuildHasNone" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestInstall_ReplacesIncompleteInstall" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestInstall_Errors/checksum_mismatch" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestInstall_Errors/missing_archive" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythondist" name="TestInstall_Errors" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="21" failures="0" time="7.865000" name="github.com/circleci-functions/setup-python/pythonpath" timestamp="2026-11-12T09:20:26-05:00">
+		<properties>
+			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
+		</properties>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestLink_RegistersWithPyenv" time="1.170000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestLink_RegistersWithPyenvBesideItsOwnInstall" time="0.570000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestLink_RerunReplacesItsPyenvLink" time="1.620000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestLink_PyenvVersionOverridesGlobal" time="0.670000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestLink_AcceptsPyenvsOwnInstallOfTheVersion" time="0.680000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestLink_RejectsPyenvsOwnInstallBuiltDifferently" time="0.670000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestPyenvRoot" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestCheck_SkipsWhenPyenv" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestLink_DiscoversDirOnPath" time="0.180000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestLink_BinDir" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestLink_TakesOverAPipAhead" time="0.410000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestLink_InvalidVersion" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestVerify/this_install" time="0.230000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestVerify/another_version" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestVerify/a_lookalike" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestVerify/does_not_run" time="0.220000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestVerify" time="0.460000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestUserInstalls" time="0.260000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestUserInstalls_ElsewhereRemovesTheSetting" time="0.210000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestShadowed" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonpath" name="TestWritePipShims" time="0.000000"></testcase>
+	</testsuite>
+	<testsuite tests="87" failures="0" time="1.200000" name="github.com/circleci-functions/setup-python/pythonversion" timestamp="2026-11-12T09:20:26-05:00">
+		<properties>
+			<property name="go.version" value="go1.27.2 darwin/arm64"></property>
+		</properties>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile/python-version" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile/python-version_comments_and_blanks" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile/python-version_crlf" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile/python-version_byte_order_mark" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile/any_other_name" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile/tool-versions" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile/pyproject_requires-python" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile/pyproject_poetry" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile/pyproject_prefers_requires-python" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile/pipfile_full_version" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile/pipfile_version" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile" time="0.010000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile_Errors/empty" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile_Errors/tool-versions_without_python" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile_Errors/pyproject_without_a_version" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile_Errors/bad_toml" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile_Errors" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestFromFile_Missing" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestDefault" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestPadPEP440/&gt;3.12" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestPadPEP440/&lt;=3.12" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestPadPEP440/==3.12" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestPadPEP440/!=3.12" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestPadPEP440/&gt;=3.10,&lt;3.14" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestPadPEP440/~=3.11" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestPadPEP440/==3.12.*" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestPadPEP440/&gt;3.12.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestPadPEP440/&gt;=_3.9,_!=_3.10,_&lt;_4" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestPadPEP440" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestRequiresPython_ResolvesAsPEP440/==3.12" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestRequiresPython_ResolvesAsPEP440/&gt;3.12,&lt;3.13" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestRequiresPython_ResolvesAsPEP440/&lt;=3.12" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestRequiresPython_ResolvesAsPEP440" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.13.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/v3.13.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/==3.13.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.13" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.12" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.x" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.13.x" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/_3.13_" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/&gt;=3.12_&lt;3.14" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/&gt;=3.12,&lt;3.14" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/&gt;=3.12,_&lt;3.14" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/^3.12" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/~3.13.0" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/~=3.12" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/~=3.13.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/==3.12.*" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.12_||_3.13" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/!=3.14.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.15.0rc2" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.15.0-rc.2" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.15.0-beta.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.15.0a3" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.14-dev" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.15-dev" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.15" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.14" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.13t" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.13.1t" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve/3.15t-dev" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve_PrereleasesOrderLikePython" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve_NoMatch/3.11" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve_NoMatch/3.15" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve_NoMatch/&gt;=3.15" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve_NoMatch/&gt;=3.15#01" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve_NoMatch/3.13.9" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestResolve_NoMatch" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestParse_Errors/#00" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestParse_Errors/banana" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestParse_Errors/pypy3.10" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestParse_Errors/graalpy-24.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestParse_Errors/3.14.1-dev" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestParse_Errors" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestParse_Freethreaded" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestExact/3.13.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestExact/=3.13.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestExact/3.13.1t" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestExact/3.15.0rc2" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestExact/3.15.0-beta.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestExact/3.13" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestExact/&gt;=3.13.1" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestExact/3.14-dev" time="0.000000"></testcase>
+		<testcase classname="github.com/circleci-functions/setup-python/pythonversion" name="TestExact" time="0.000000"></testcase>
+	</testsuite>
+</testsuites>
