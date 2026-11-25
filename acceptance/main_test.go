@@ -84,6 +84,7 @@ type runFunc func(t *testing.T, extraEnv map[string]string, args ...string) (str
 func sandbox(t *testing.T) (*sdktest.Sandbox, runFunc) {
 	t.Helper()
 	s := sdktest.NewSandbox(t, sdktest.WithLiveCache())
+	makeWritableOnCleanup(t, s.Home)
 	return s, newRun(s)
 }
 
@@ -94,7 +95,22 @@ func sandbox(t *testing.T) (*sdktest.Sandbox, runFunc) {
 func sandboxInMemory(t *testing.T) (*sdktest.Sandbox, runFunc) {
 	t.Helper()
 	s := sdktest.NewSandbox(t)
+	makeWritableOnCleanup(t, s.Home)
 	return s, newRun(s)
+}
+
+// makeWritableOnCleanup lets t.TempDir delete dir, where virtualenv leaves
+// read-only directories.
+func makeWritableOnCleanup(t *testing.T, dir string) {
+	t.Helper()
+	t.Cleanup(func() {
+		_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+			if err == nil && d.IsDir() {
+				_ = os.Chmod(path, 0o700) //nolint:gosec // test temp dir, owner-only
+			}
+			return nil
+		})
+	})
 }
 
 // newRun returns a run function that executes the binary in s's environment,
