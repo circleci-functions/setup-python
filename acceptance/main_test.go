@@ -99,11 +99,8 @@ func sandboxInMemory(t *testing.T) (*sdktest.Sandbox, runFunc) {
 	return s, newRun(s)
 }
 
-// makeWritableOnCleanup makes every directory under dir writable when the test
-// ends, so t.TempDir's cleanup can delete it. virtualenv (which pipenv and
-// Poetry run) marks the seed wheels it unpacks under $HOME/.cache/virtualenv
-// read-only, and a file can't be removed from a read-only directory. Cleanups
-// run last-registered first, so this runs before the sandbox's own.
+// makeWritableOnCleanup lets t.TempDir delete dir, where virtualenv leaves
+// read-only directories.
 func makeWritableOnCleanup(t *testing.T, dir string) {
 	t.Helper()
 	t.Cleanup(func() {
