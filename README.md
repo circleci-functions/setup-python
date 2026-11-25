@@ -29,14 +29,6 @@ jobs:
 `- setup-python/install-packages:` runs `install-packages`. Each flag in the
 tables below is a `with:` key, written without its leading `--`.
 
-Where the `functions:` block isn't enabled, such as on CircleCI Server, run the
-same commands with `circleci run` and the function's full name:
-
-```yaml
-- run: circleci run github.com/circleci-functions/setup-python@<version> -- --python-version 3.13
-- run: circleci run github.com/circleci-functions/setup-python@<version> -- install-packages --app-dir ./service
-```
-
 ## Installing Python
 
 With no command, setup-python downloads a CPython build for the machine it
